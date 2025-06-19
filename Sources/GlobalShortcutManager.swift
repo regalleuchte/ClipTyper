@@ -130,6 +130,11 @@ class GlobalShortcutManager {
         return result
     }
     
+    // Get the current shortcut as a string
+    func getCurrentShortcutString() -> String {
+        return modifiersToString()
+    }
+    
     // Helper function to convert key code to character
     private func keyCodeToChar(_ keyCode: UInt16) -> String {
         // This is a simplified version - in a real app you'd want a more complete mapping

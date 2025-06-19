@@ -11,6 +11,7 @@ class PreferencesManager {
     private let showCountdownInMenuBarKey = "showCountdownInMenuBar"
     private let keyboardShortcutKeyCodeKey = "keyboardShortcutKeyCode"
     private let keyboardShortcutModifiersKey = "keyboardShortcutModifiers"
+    private let autostartKey = "autostart"
     
     // Default values
     private let defaultTypingDelay = 2.0
@@ -20,6 +21,7 @@ class PreferencesManager {
     private let defaultShowCountdownInMenuBar = false
     private let defaultKeyboardShortcutKeyCode: UInt16 = 9 // V key
     private let defaultKeyboardShortcutModifiers: UInt32 = 1048840 // Option+Command
+    private let defaultAutostart = false
     
     init() {
         registerDefaults()
@@ -33,7 +35,8 @@ class PreferencesManager {
             characterWarningThresholdKey: defaultCharacterWarningThreshold,
             showCountdownInMenuBarKey: defaultShowCountdownInMenuBar,
             keyboardShortcutKeyCodeKey: defaultKeyboardShortcutKeyCode,
-            keyboardShortcutModifiersKey: defaultKeyboardShortcutModifiers
+            keyboardShortcutModifiersKey: defaultKeyboardShortcutModifiers,
+            autostartKey: defaultAutostart
         ]
         
         defaults.register(defaults: defaultValues)
@@ -69,6 +72,10 @@ class PreferencesManager {
         return UInt32(defaults.integer(forKey: keyboardShortcutModifiersKey))
     }
     
+    func getAutostart() -> Bool {
+        return defaults.bool(forKey: autostartKey)
+    }
+    
     // MARK: - Setters
     
     func setTypingDelay(_ delay: Double) {
@@ -94,5 +101,9 @@ class PreferencesManager {
     func setKeyboardShortcut(keyCode: UInt16, modifiers: UInt32) {
         defaults.set(Int(keyCode), forKey: keyboardShortcutKeyCodeKey)
         defaults.set(Int(modifiers), forKey: keyboardShortcutModifiersKey)
+    }
+    
+    func setAutostart(_ autostart: Bool) {
+        defaults.set(autostart, forKey: autostartKey)
     }
 } 

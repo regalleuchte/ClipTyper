@@ -35,7 +35,7 @@ Security engineer, managed service provider employee, computer engineer hopping 
 └─────────────────────────────────────────────┘
 
 
-[Right-click Menu - Updated]
+[Left-click Menu - Updated]
 ┌─────────────────────────────────────────────┐
 │ ClipTyper                                   │
 │ ───────────────────────────────────         │
@@ -105,8 +105,8 @@ Functionality
 User Interface
 	•	Menu bar (status bar) icon
 	•	Optional character count display next to icon (off by default)
-	•	Left-click on icon: Activate typing function (after delay)
-	•	Right-click on icon: Open settings menu
+	•	Right-click on icon: Activate typing function (after delay)
+	•	Left-click on icon: Open settings menu
 	•	Warning dialog with "Cancel" and "Proceed" options for large text
 	•	Shortcut hint in warning dialog (press shortcut again to proceed)
 	•	Countdown displayed either in dialog or in menu bar (user preference)
@@ -128,11 +128,12 @@ Settings Options
 	4	Toggle for showing character count in menu bar (default: off)
 	5	Character threshold for warning dialog (default: 100)
 	6	Countdown display preference (dialog or menu bar)
-    7   Dialogue/windows should be placed directly under the menu bar and app icon
-    8   Dialogue/windows should be on top of other windows
+	7	Autostart with system (default: off)
+    8   Dialogue/windows should be placed directly under the menu bar and app icon
+    9   Dialogue/windows should be on top of other windows
 User Interactions
-	•	Left-click menu bar icon: Start typing process
-	•	Right-click menu bar icon: Open settings menu
+	•	Right-click menu bar icon: Start typing process
+	•	Left-click menu bar icon: Open settings menu
 	•	Keyboard shortcut: Start typing process
 	•	Pressing keyboard shortcut again during warning: Confirm and proceed
 Distribution
@@ -152,3 +153,6 @@ Implementation Considerations
 	•	Managing accessibility permissions gracefully
 	•	Ensuring reliable keyboard simulation across different contexts
 	•	Clean, minimal UI matching MacOS design language
+	•	Follows contemporary macOS design and Apple's current Human Interface Guidelines
+	•	Modern styling with proper materials, typography, and spacing
+	•	Focus-preserving dialogs that don't interfere with typing workflow

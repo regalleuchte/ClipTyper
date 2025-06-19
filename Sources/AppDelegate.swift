@@ -4,10 +4,14 @@ import Carbon
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenu: NSMenu!
+    private var mainMenuItem: NSMenuItem!
+    private var clipboardStatusMenuItem: NSMenuItem!
+    private var delayValueLabel: NSTextField!
     private var preferencesManager: PreferencesManager!
     private var clipboardManager: ClipboardManager!
     private var keyboardSimulator: KeyboardSimulator!
     private var shortcutManager: GlobalShortcutManager!
+    private var loginItemManager: LoginItemManager!
     private let defaults = UserDefaults.standard
     
     // Flag to track if a warning dialog is currently shown
@@ -23,11 +27,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         requestAccessibilityPermission()
     }
     
+    func applicationWillTerminate(_ aNotification: Notification) {
+        // Clean up observers
+        if #available(macOS 10.14, *) {
+            NSApp.removeObserver(self, forKeyPath: "effectiveAppearance")
+        }
+        
+        // Clean up managers
+        shortcutManager?.unregisterShortcut()
+    }
+    
+    deinit {
+        // Additional cleanup in case applicationWillTerminate isn't called
+        if #available(macOS 10.14, *) {
+            NSApp.removeObserver(self, forKeyPath: "effectiveAppearance")
+        }
+    }
+    
     private func setupManagers() {
         preferencesManager = PreferencesManager()
         clipboardManager = ClipboardManager()
         keyboardSimulator = KeyboardSimulator()
         shortcutManager = GlobalShortcutManager()
+        loginItemManager = LoginItemManager()
         
         // Setup clipboard monitoring to update character count
         clipboardManager.onClipboardChange = { [weak self] count in
@@ -39,25 +61,91 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem.button {
-            // Create custom icon for status bar
-            let iconImage = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "ClipTyper")
-            iconImage?.size = NSSize(width: 18, height: 18) // Resize for status bar
-            button.image = iconImage
+            // Enhanced SF Symbols integration with better visual states
+            setupStatusBarIcon()
             button.target = self
             
-            // Left click activates typing, right click shows menu
+            // Right click activates typing, left click shows menu
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.action = #selector(statusItemClicked(_:))
+            
+            // Enhanced accessibility
+            button.toolTip = "ClipTyper - Right-click to type clipboard, left-click for settings"
         }
         
+        // Setup automatic dark mode observation
+        setupDarkModeObserver()
         updateCharacterCount(clipboardManager.getClipboardCharacterCount())
+    }
+    
+    private func setupStatusBarIcon() {
+        guard let button = statusItem.button else { return }
+        
+        // Use enhanced SF Symbol with better configuration
+        let iconImage: NSImage?
+        if #available(macOS 11.0, *) {
+            let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium, scale: .medium)
+            iconImage = NSImage(systemSymbolName: "doc.on.clipboard.fill", accessibilityDescription: "ClipTyper")?.withSymbolConfiguration(config)
+        } else {
+            iconImage = NSImage(systemSymbolName: "doc.on.clipboard.fill", accessibilityDescription: "ClipTyper")
+        }
+        
+        button.image = iconImage
+        
+        // Enhanced visual feedback
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
+        
+        // Better template rendering for dark mode
+        iconImage?.isTemplate = true
+    }
+    
+    private func setupDarkModeObserver() {
+        // Use a safer approach with KVO instead of distributed notifications
+        if #available(macOS 10.14, *) {
+            // Listen for effective appearance changes
+            NSApp.addObserver(self, forKeyPath: "effectiveAppearance", options: [.new, .initial], context: nil)
+        }
+        
+        // Initial appearance setup
+        updateAppearance()
+    }
+    
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "effectiveAppearance" {
+            DispatchQueue.main.async {
+                self.updateAppearance()
+            }
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+        }
+    }
+    
+    private func updateAppearance() {
+        // Update status item for current appearance
+        setupStatusBarIcon()
+        
+        // Update any open panels/dialogs
+        for window in NSApp.windows {
+            if let panel = window as? ModernPanel {
+                panel.updateForCurrentAppearance()
+            }
+        }
     }
     
     private func setupMenu() {
         statusMenu = NSMenu()
         
         // Main action
-        statusMenu.addItem(NSMenuItem(title: "Type Clipboard (⌥⌘V)", action: #selector(startTypingProcess), keyEquivalent: ""))
+        mainMenuItem = NSMenuItem(title: "Type Clipboard (\(shortcutManager.getCurrentShortcutString()))", action: #selector(startTypingProcess), keyEquivalent: "")
+        statusMenu.addItem(mainMenuItem)
+        
+        // Clipboard status
+        let clipboardLength = clipboardManager.getClipboardCharacterCount()
+        clipboardStatusMenuItem = NSMenuItem(title: "Clipboard: \(clipboardLength) characters", action: nil, keyEquivalent: "")
+        clipboardStatusMenuItem.isEnabled = false
+        statusMenu.addItem(clipboardStatusMenuItem)
+        
         statusMenu.addItem(NSMenuItem.separator())
         
         // Delay slider
@@ -75,6 +163,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let showCountItem = NSMenuItem(title: "Show character count in menu bar", action: #selector(toggleShowCharacterCount), keyEquivalent: "")
         showCountItem.state = preferencesManager.getShowCharacterCount() ? .on : .off
         statusMenu.addItem(showCountItem)
+        
+        // Autostart option
+        let autostartItem = NSMenuItem(title: "Start ClipTyper at login", action: #selector(toggleAutostart), keyEquivalent: "")
+        autostartItem.state = preferencesManager.getAutostart() ? .on : .off
+        statusMenu.addItem(autostartItem)
         
         // Countdown display options
         let countdownItem = NSMenuItem(title: "Countdown display:", action: nil, keyEquivalent: "")
@@ -104,9 +197,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func createDelaySliderView() -> NSView {
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 40))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 60))
+        containerView.wantsLayer = true
         
-        let slider = NSSlider(frame: NSRect(x: 40, y: 10, width: 160, height: 20))
+        // Modern spacing
+        let margin: CGFloat = 16
+        let sliderWidth: CGFloat = 180
+        
+        // Modern slider with proper styling
+        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 25, width: sliderWidth, height: 20))
         slider.minValue = 0.5
         slider.maxValue = 10.0
         slider.doubleValue = preferencesManager.getTypingDelay()
@@ -114,19 +213,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         slider.action = #selector(delaySliderChanged(_:))
         slider.isContinuous = true
         
-        let minLabel = NSTextField(frame: NSRect(x: 5, y: 10, width: 35, height: 20))
-        minLabel.stringValue = "0.5s"
-        minLabel.isEditable = false
-        minLabel.isBordered = false
-        minLabel.drawsBackground = false
+        // Modern slider appearance
+        if #available(macOS 11.0, *) {
+            slider.trackFillColor = NSColor.controlAccentColor
+        }
         
-        let maxLabel = NSTextField(frame: NSRect(x: 200, y: 10, width: 35, height: 20))
-        maxLabel.stringValue = "10s"
-        maxLabel.isEditable = false
-        maxLabel.isBordered = false
-        maxLabel.drawsBackground = false
+        // Current value label with modern typography
+        let currentDelay = preferencesManager.getTypingDelay()
+        delayValueLabel = ModernLabel.createCaptionLabel(
+            text: String(format: "%.1fs", currentDelay),
+            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 20, y: 5, width: 40, height: 15)
+        )
+        delayValueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        
+        // Min/max labels with modern styling
+        let minLabel = ModernLabel.createCaptionLabel(
+            text: "0.5s",
+            frame: NSRect(x: 8, y: 25, width: 30, height: 20)
+        )
+        minLabel.alignment = .right
+        
+        let maxLabel = ModernLabel.createCaptionLabel(
+            text: "10s",
+            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 25, width: 30, height: 20)
+        )
+        maxLabel.alignment = .left
         
         containerView.addSubview(slider)
+        containerView.addSubview(delayValueLabel)
         containerView.addSubview(minLabel)
         containerView.addSubview(maxLabel)
         
@@ -136,13 +250,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
         let event = NSApp.currentEvent!
         
-        if event.type == .rightMouseUp {
-            // Right click - show the menu
+        if event.type == .leftMouseUp {
+            // Left click - show the menu
             statusItem.menu = statusMenu
             statusItem.button?.performClick(nil)
             statusItem.menu = nil
-        } else if event.type == .leftMouseUp {
-            // Left click - start typing process
+        } else if event.type == .rightMouseUp {
+            // Right click - start typing process
             startTypingProcess()
         }
     }
@@ -150,10 +264,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func startTypingProcess() {
         // Check if we're already in the process
         if isCountdownInProgress {
-            // If warning dialog is shown, take this as confirmation to proceed
-            if isWarningDialogShown {
-                dismissWarningAndStartCountdown()
-            }
+            return
+        }
+        
+        // If warning dialog is shown, take this as confirmation to proceed
+        if isWarningDialogShown {
+            dismissWarningAndStartCountdown()
             return
         }
         
@@ -176,31 +292,130 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func showWarningDialog(characterCount: Int) {
+        // Capture the currently active application to restore focus later
+        let currentApp = NSWorkspace.shared.frontmostApplication
+        
         isWarningDialogShown = true
         
-        let alert = NSAlert()
-        alert.messageText = "ClipTyper"
-        alert.informativeText = "The clipboard contains \(characterCount) characters.\nDo you want to proceed with typing?\n\nTip: Press ⌥⌘V again to proceed"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Proceed")
-        alert.addButton(withTitle: "Cancel")
+        // Create a modern warning panel
+        let panelWidth: CGFloat = 360
+        let panelHeight: CGFloat = 160
+        let panel = ModernPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
+                               styleMask: [.titled],
+                               backing: .buffered,
+                               defer: false)
+        panel.title = "ClipTyper"
+        
+        // Modern content view with proper spacing
+        let contentView = NSView(frame: panel.contentRect(forFrameRect: panel.frame))
+        contentView.wantsLayer = true
+        panel.contentView = contentView
+        
+        // Modern spacing using 8pt grid system
+        let margin: CGFloat = 24
+        let buttonSpacing: CGFloat = 16
+        
+        // Main message label using modern typography
+        let messageLabel = ModernLabel.createHeadlineLabel(
+            text: "The clipboard contains \(characterCount) characters.\nDo you want to proceed with typing?",
+            frame: NSRect(x: margin, y: 100, width: panelWidth - (margin * 2), height: 40)
+        )
+        contentView.addSubview(messageLabel)
+        
+        // Tip label with proper hierarchy
+        let tipLabel = ModernLabel.createCaptionLabel(
+            text: "Tip: Press \(shortcutManager.getCurrentShortcutString()) again to proceed",
+            frame: NSRect(x: margin, y: 60, width: panelWidth - (margin * 2), height: 30)
+        )
+        contentView.addSubview(tipLabel)
+        
+        // Modern button layout with proper spacing
+        let buttonWidth: CGFloat = 90
+        let buttonHeight: CGFloat = 30
+        let totalButtonWidth = (buttonWidth * 2) + buttonSpacing
+        let buttonStartX = (panelWidth - totalButtonWidth) / 2
+        
+        // Primary action button (Proceed)
+        let proceedButton = ModernButton.createPrimaryButton(
+            title: "Proceed",
+            frame: NSRect(x: buttonStartX + buttonWidth + buttonSpacing, y: 20, width: buttonWidth, height: buttonHeight)
+        )
+        proceedButton.target = self
+        proceedButton.action = #selector(warningProceedClicked(_:))
+        proceedButton.keyEquivalent = "\r"  // Enter key
+        contentView.addSubview(proceedButton)
+        
+        // Secondary action button (Cancel)
+        let cancelButton = ModernButton.createSecondaryButton(
+            title: "Cancel",
+            frame: NSRect(x: buttonStartX, y: 20, width: buttonWidth, height: buttonHeight)
+        )
+        cancelButton.target = self
+        cancelButton.action = #selector(warningCancelClicked(_:))
+        cancelButton.keyEquivalent = "\u{1B}"  // Escape key
+        contentView.addSubview(cancelButton)
+        
+        // Store references for button actions
+        objc_setAssociatedObject(proceedButton, "panel", panel, .OBJC_ASSOCIATION_RETAIN)
+        objc_setAssociatedObject(proceedButton, "currentApp", currentApp, .OBJC_ASSOCIATION_RETAIN)
+        objc_setAssociatedObject(cancelButton, "panel", panel, .OBJC_ASSOCIATION_RETAIN)
+        objc_setAssociatedObject(cancelButton, "currentApp", currentApp, .OBJC_ASSOCIATION_RETAIN)
         
         // Position and show window below menu bar icon
-        let window = alert.window
-        window.level = .floating // Stay on top
-        positionWindowBelowStatusItem(window)
-        
-        let response = alert.runModal()
-        isWarningDialogShown = false
-        
-        if response == .alertFirstButtonReturn {
-            startCountdown()
+        positionWindowBelowStatusItem(panel)
+        panel.orderFront(nil)
+    }
+    
+    @objc private func warningProceedClicked(_ sender: NSButton) {
+        if let panel = objc_getAssociatedObject(sender, "panel") as? NSPanel,
+           let currentApp = objc_getAssociatedObject(sender, "currentApp") as? NSRunningApplication {
+            panel.close()
+            isWarningDialogShown = false
+            
+            // Restore focus to original app before starting countdown
+            currentApp.activate(options: [])
+            
+            // Small delay to ensure focus is restored
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.startCountdown()
+            }
+        }
+    }
+    
+    @objc private func warningCancelClicked(_ sender: NSButton) {
+        if let panel = objc_getAssociatedObject(sender, "panel") as? NSPanel {
+            panel.close()
+            isWarningDialogShown = false
+        }
+    }
+    
+    @objc private func cancelCountdown(_ sender: NSButton) {
+        if let panel = objc_getAssociatedObject(sender, "panel") as? NSPanel {
+            panel.close()
+            isCountdownInProgress = false
         }
     }
     
     private func dismissWarningAndStartCountdown() {
+        // Close any open warning panels
+        for window in NSApp.windows {
+            if window is ModernPanel && window.title == "ClipTyper" {
+                window.close()
+                break
+            }
+        }
+        
         isWarningDialogShown = false
-        startCountdown()
+        
+        // Try to restore focus to the previously active app if possible
+        if let currentApp = NSWorkspace.shared.frontmostApplication {
+            currentApp.activate(options: [])
+        }
+        
+        // Small delay to ensure focus is restored before starting countdown
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.startCountdown()
+        }
     }
     
     private func startCountdown() {
@@ -219,8 +434,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMenuBarCountdown(seconds: Int) {
         var secondsRemaining = seconds
         
-        // Save the original title
+        // Save the original title and update visual state
         let originalTitle = statusItem.button?.title ?? ""
+        updateStatusBarForCountdown(true)
         
         // Update the menu bar with countdown
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
@@ -235,83 +451,87 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 timer.invalidate()
                 self.statusItem.button?.title = originalTitle
+                self.updateStatusBarForCountdown(false) // Reset to normal state
                 self.performTyping()
             }
         }
     }
     
+    private func updateStatusBarForCountdown(_ isCountdown: Bool) {
+        guard let button = statusItem.button else { return }
+        
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium, scale: .medium)
+        
+        if isCountdown {
+            // Use timer symbol during countdown
+            let timerImage: NSImage?
+            if #available(macOS 11.0, *) {
+                timerImage = NSImage(systemSymbolName: "timer", accessibilityDescription: "ClipTyper - Countdown Active")?.withSymbolConfiguration(config)
+            } else {
+                timerImage = NSImage(systemSymbolName: "timer", accessibilityDescription: "ClipTyper - Countdown Active")
+            }
+            button.image = timerImage
+            button.toolTip = "ClipTyper - Countdown in progress"
+        } else {
+            // Return to normal state - this will be updated by updateCharacterCount
+            setupStatusBarIcon()
+        }
+        
+        // Ensure template rendering for proper dark mode support
+        button.image?.isTemplate = true
+    }
+    
     private func showCountdownDialog(seconds: Int) {
+        // Capture the currently active application to restore focus later
+        let currentApp = NSWorkspace.shared.frontmostApplication
         var secondsRemaining = seconds
         
-        // Create a custom panel
-        let panelWidth: CGFloat = 200
-        let panelHeight: CGFloat = 80
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
-                            styleMask: [.borderless],
-                            backing: .buffered,
-                            defer: false)
-        panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Create a modern countdown panel
+        let panelWidth: CGFloat = 280
+        let panelHeight: CGFloat = 120
+        let panel = ModernPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
+                               styleMask: [.titled],
+                               backing: .buffered,
+                               defer: false)
+        panel.title = "ClipTyper"
         
-        // Content View
+        // Modern content view
         let contentView = NSView(frame: panel.contentRect(forFrameRect: panel.frame))
+        contentView.wantsLayer = true
         panel.contentView = contentView
         
-        // Remove background color
-        contentView.wantsLayer = false
+        // Modern spacing
+        let margin: CGFloat = 24
         
-        // Countdown Label
-        let countdownLabel = NSTextField(frame: NSRect(x: 20, y: 35, width: panelWidth - 40, height: 25))
-        countdownLabel.stringValue = "Typing in \(secondsRemaining)..."
-        countdownLabel.isEditable = false
-        countdownLabel.isBordered = false
-        countdownLabel.drawsBackground = false
-        countdownLabel.alignment = .center
-        countdownLabel.font = NSFont.systemFont(ofSize: 14)
+        // Countdown Label with modern typography
+        let countdownLabel = ModernLabel.createHeadlineLabel(
+            text: "Typing in \(secondsRemaining)...",
+            frame: NSRect(x: margin, y: 55, width: panelWidth - (margin * 2), height: 30)
+        )
         contentView.addSubview(countdownLabel)
         
-        // Cancel Button
-        let cancelButton = NSButton(frame: NSRect(x: (panelWidth - 100) / 2, y: 5, width: 100, height: 25))
-        cancelButton.title = "Cancel Typing"
-        cancelButton.bezelStyle = .rounded
+        // Cancel Button with modern styling
+        let buttonWidth: CGFloat = 120
+        let cancelButton = ModernButton.createSecondaryButton(
+            title: "Cancel Typing",
+            frame: NSRect(x: (panelWidth - buttonWidth) / 2, y: 20, width: buttonWidth, height: 30)
+        )
         cancelButton.target = self
-        var associatedTimer: Timer? = nil
-        let cancelAction = { [weak self, weak panel, weak associatedTimer] in
-            associatedTimer?.invalidate()
-            panel?.close()
-            self?.isCountdownInProgress = false
-        }
-        class ActionWrapper: NSObject {
-            let action: () -> Void
-            init(action: @escaping () -> Void) {
-                self.action = action
-            }
-            @objc func performAction() {
-                action()
-            }
-        }
-        let actionWrapper = ActionWrapper(action: cancelAction)
-        objc_setAssociatedObject(cancelButton, "actionWrapper", actionWrapper, .OBJC_ASSOCIATION_RETAIN)
-        cancelButton.target = actionWrapper
-        cancelButton.action = #selector(ActionWrapper.performAction)
+        cancelButton.action = #selector(cancelCountdown(_:))
+        cancelButton.keyEquivalent = "\u{1B}"  // Escape key
         contentView.addSubview(cancelButton)
+        
+        // Store panel reference for cancel action
+        objc_setAssociatedObject(cancelButton, "panel", panel, .OBJC_ASSOCIATION_RETAIN)
         
         // Position window below status item
         positionWindowBelowStatusItem(panel)
         
-        // Activate app before showing panel
-        NSApp.activate(ignoringOtherApps: true)
-        
-        // Show the panel asynchronously
-        DispatchQueue.main.async {
-            panel.makeKeyAndOrderFront(nil)
-        }
+        // Show the panel without stealing focus
+        panel.orderFront(nil)
         
         // Create a timer to update the countdown and dismiss when done
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self, weak panel, weak countdownLabel] timer in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self, weak panel, weak countdownLabel, currentApp] timer in
             guard let self = self, let panel = panel, panel.isVisible else {
                 timer.invalidate()
                 return
@@ -319,15 +539,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             secondsRemaining -= 1
             
-            if secondsRemaining >= 0 {
+            if secondsRemaining > 0 {
                 countdownLabel?.stringValue = "Typing in \(secondsRemaining)..."
             } else {
                 timer.invalidate()
                 panel.close()
-                self.performTyping()
+                
+                // Restore focus to the original application before typing
+                if let app = currentApp {
+                    app.activate(options: [])
+                }
+                
+                // Small delay to ensure focus is restored
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.isCountdownInProgress = false
+                    self.performTyping()
+                }
             }
         }
-        associatedTimer = timer
+        
+        // Store timer reference for potential cleanup
+        objc_setAssociatedObject(panel, "timer", timer, .OBJC_ASSOCIATION_RETAIN)
     }
     
     private func positionWindowBelowStatusItem(_ window: NSWindow) {
@@ -361,11 +593,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func updateCharacterCount(_ count: Int) {
+        guard let button = statusItem?.button else { return }
+        
         if preferencesManager.getShowCharacterCount() && !isCountdownInProgress {
-            statusItem.button?.title = "\(count)"
+            // Show character count with better formatting and accessibility
+            let formattedText = formatCharacterCount(count)
+            button.title = formattedText
+            
+            // Enhanced accessibility
+            button.toolTip = "ClipTyper - \(count) characters in clipboard. Right-click to type, left-click for settings"
         } else if !isCountdownInProgress {
-            statusItem.button?.title = ""
+            // Hide character count
+            button.title = ""
+            button.toolTip = "ClipTyper - Right-click to type clipboard, left-click for settings"
         }
+        
+        // Update clipboard status in menu (only if menu is set up)
+        if clipboardStatusMenuItem != nil {
+            clipboardStatusMenuItem.title = "Clipboard: \(formatCharacterCount(count))"
+        }
+        
+        // Update visual state based on clipboard content
+        if !isCountdownInProgress {
+            updateStatusBarForClipboardState(count)
+        }
+    }
+    
+    private func formatCharacterCount(_ count: Int) -> String {
+        if count == 0 {
+            return "" // Don't show anything for empty clipboard
+        } else if count > 999 {
+            return "\(count / 1000)k+"
+        } else {
+            return "\(count)"
+        }
+    }
+    
+    private func updateStatusBarForClipboardState(_ count: Int) {
+        guard let button = statusItem.button else { return }
+        
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium, scale: .medium)
+        let iconName: String
+        let accessibilityDescription: String
+        
+        if count == 0 {
+            iconName = "doc.on.clipboard"
+            accessibilityDescription = "ClipTyper - No clipboard content"
+        } else if count > (preferencesManager?.getCharacterWarningThreshold() ?? 100) {
+            iconName = "doc.on.clipboard.fill"
+            accessibilityDescription = "ClipTyper - Large clipboard content (\(count) characters)"
+        } else {
+            iconName = "doc.on.clipboard.fill"
+            accessibilityDescription = "ClipTyper - \(count) characters ready to type"
+        }
+        
+        let iconImage: NSImage?
+        if #available(macOS 11.0, *) {
+            iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: accessibilityDescription)?.withSymbolConfiguration(config)
+        } else {
+            iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: accessibilityDescription)
+        }
+        button.image = iconImage
+        button.image?.isTemplate = true
     }
     
     private func registerShortcut() {
@@ -405,6 +694,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func delaySliderChanged(_ sender: NSSlider) {
         let value = sender.doubleValue
         preferencesManager.setTypingDelay(value)
+        
+        // Update the live value display (only if UI is set up)
+        if delayValueLabel != nil {
+            delayValueLabel.stringValue = String(format: "%.1fs", value)
+        }
     }
     
     @objc private func toggleAutoClear(_ sender: NSMenuItem) {
@@ -423,6 +717,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             updateCharacterCount(clipboardManager.getClipboardCharacterCount())
         } else {
             statusItem.button?.title = ""
+        }
+    }
+    
+    @objc private func toggleAutostart(_ sender: NSMenuItem) {
+        let newValue = !preferencesManager.getAutostart()
+        
+        // Update the login item setting
+        let success = loginItemManager.setLoginItemEnabled(newValue)
+        
+        // Always update the preference to track user intent
+        preferencesManager.setAutostart(newValue)
+        sender.state = newValue ? .on : .off
+        
+        if success {
+            // Automatic setup succeeded
+            let message = newValue ? "ClipTyper will now start automatically when you log in." : "ClipTyper will no longer start automatically at login."
+            showAlert(title: "Autostart Updated", message: message)
+        } else {
+            // Show manual setup instructions
+            if newValue {
+                // For enabling, show detailed instructions
+                let instructions = loginItemManager.getManualSetupInstructions(newValue)
+                let appPath = loginItemManager.getAppPath() ?? "ClipTyper.app"
+                
+                showManualSetupAlert(title: "Manual Setup Required", 
+                                   message: "ClipTyper needs to be added to your login items manually.\n\nApp location: \(appPath)\n\n\(instructions)")
+            } else {
+                // For disabling, show simpler message
+                let instructions = loginItemManager.getManualSetupInstructions(newValue)
+                showAlert(title: "Manual Removal Required", message: instructions)
+            }
+        }
+    }
+    
+    private func showManualSetupAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Open System Settings")
+        
+        let response = alert.runModal()
+        
+        if response == .alertSecondButtonReturn {
+            // Open System Settings/Preferences to Login Items
+            openLoginItemsSettings()
+        }
+    }
+    
+    private func openLoginItemsSettings() {
+        // Try to open the Login Items section in System Settings/Preferences
+        if #available(macOS 13.0, *) {
+            // macOS 13+ uses System Settings
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
+        } else {
+            // Older macOS uses System Preferences
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.users")!)
         }
     }
     
@@ -478,42 +830,103 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func changeKeyboardShortcut() {
-        // Create a custom window for shortcut recording
-        let window = ShortcutRecorderWindow()
+        // Temporarily disable the global shortcut while configuring
+        shortcutManager.unregisterShortcut()
         
-        // Set up the window
-        window.title = "Record New Shortcut"
-        window.styleMask = [.titled, .closable]
-        window.level = .floating
-        window.center()
+        let alert = NSAlert()
+        alert.messageText = "Change Keyboard Shortcut"
+        alert.informativeText = "Click in the field below and press the keys you want to use for the shortcut.\n\nCurrent shortcut: \(shortcutManager.getCurrentShortcutString())"
+        alert.alertStyle = .informational
         
-        // Center below status item
-        positionWindowBelowStatusItem(window)
+        // Add text field for shortcut input
+        let inputField = ShortcutTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        inputField.placeholderString = "Click here, then press keys..."
+        alert.accessoryView = inputField
         
-        // Set the completion handler
-        window.shortcutRecorded = { [weak self] keyCode, modifiers in
-            guard let self = self else { return }
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Reset to Default")
+        
+        // Position below status item
+        if let statusButton = statusItem.button,
+           let statusWindow = statusButton.window {
+            let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+            let screenFrame = statusWindow.convertToScreen(buttonFrame)
             
-            // Save the new shortcut in preferences
-            self.preferencesManager.setKeyboardShortcut(keyCode: keyCode, modifiers: modifiers)
-            
-            // Update the shortcut manager
-            self.shortcutManager.updateShortcut(keyCode: keyCode, modifiers: modifiers)
-            
-            // Show confirmation
-            let alert = NSAlert()
-            alert.messageText = "Shortcut Changed"
-            alert.informativeText = "New shortcut set to: \(self.shortcutManager.modifiersToString())"
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "OK")
-            
-            positionWindowBelowStatusItem(alert.window)
-            alert.runModal()
+            DispatchQueue.main.async {
+                let alertWindow = alert.window
+                let alertFrame = alertWindow.frame
+                let newOrigin = NSPoint(
+                    x: screenFrame.midX - alertFrame.width / 2,
+                    y: screenFrame.minY - alertFrame.height - 5
+                )
+                alertWindow.setFrameOrigin(newOrigin)
+            }
         }
         
-        // Show the window
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        // Make the input field the first responder after the alert appears
+        DispatchQueue.main.async {
+            alert.window.makeFirstResponder(inputField)
+        }
+        
+        let response = alert.runModal()
+        
+        switch response {
+        case .alertFirstButtonReturn: // OK
+            if let newShortcut = inputField.recordedShortcut {
+                preferencesManager.setKeyboardShortcut(keyCode: newShortcut.keyCode, modifiers: newShortcut.modifiers)
+                shortcutManager.updateShortcut(keyCode: newShortcut.keyCode, modifiers: newShortcut.modifiers)
+                updateMenuItemShortcut()
+                
+                showConfirmation("Shortcut changed to: \(shortcutManager.getCurrentShortcutString())")
+            } else {
+                // Re-register the existing shortcut if no new one was set
+                registerShortcut()
+            }
+        case .alertThirdButtonReturn: // Reset to Default
+            let defaultKeyCode: UInt16 = 9 // V key
+            let defaultModifiers: UInt32 = UInt32(optionKey) | UInt32(cmdKey) // ⌥⌘
+            
+            preferencesManager.setKeyboardShortcut(keyCode: defaultKeyCode, modifiers: defaultModifiers)
+            shortcutManager.updateShortcut(keyCode: defaultKeyCode, modifiers: defaultModifiers)
+            updateMenuItemShortcut()
+            
+            showConfirmation("Shortcut reset to default: ⌥⌘V")
+        default: // Cancel
+            // Re-register the existing shortcut
+            registerShortcut()
+        }
+    }
+    
+    private func updateMenuItemShortcut() {
+        mainMenuItem.title = "Type Clipboard (\(shortcutManager.getCurrentShortcutString()))"
+    }
+    
+    private func showConfirmation(_ message: String) {
+        let confirmAlert = NSAlert()
+        confirmAlert.messageText = "Shortcut Updated"
+        confirmAlert.informativeText = message
+        confirmAlert.alertStyle = .informational
+        confirmAlert.addButton(withTitle: "OK")
+        
+        // Position below status item
+        if let statusButton = statusItem.button,
+           let statusWindow = statusButton.window {
+            let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+            let screenFrame = statusWindow.convertToScreen(buttonFrame)
+            
+            DispatchQueue.main.async {
+                let alertWindow = confirmAlert.window
+                let alertFrame = alertWindow.frame
+                let newOrigin = NSPoint(
+                    x: screenFrame.midX - alertFrame.width / 2,
+                    y: screenFrame.minY - alertFrame.height - 5
+                )
+                alertWindow.setFrameOrigin(newOrigin)
+            }
+        }
+        
+        confirmAlert.runModal()
     }
     
     @objc private func quitApp() {
@@ -521,220 +934,350 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// Custom window class for recording shortcuts
-class ShortcutRecorderWindow: NSWindow {
-    private var monitorGlobal: Any?
-    private var monitorLocal: Any?
-    private var currentModifiers: UInt32 = 0
-    private var recordingView: ShortcutDisplayView!
-    
-    // Callback for when a shortcut is recorded
-    var shortcutRecorded: ((UInt16, UInt32) -> Void)?
-    
-    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
-        
-        // Create a content view for the window
-        let contentRect = NSRect(x: 0, y: 0, width: 300, height: 150)
-        
-        super.init(contentRect: contentRect, styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        
-        // Create the content
-        let contentView = NSView(frame: contentRect)
-        self.contentView = contentView
-        
-        // Title label
-        let titleLabel = NSTextField(frame: NSRect(x: 20, y: 110, width: 260, height: 20))
-        titleLabel.stringValue = "Press a new keyboard shortcut"
-        titleLabel.isEditable = false
-        titleLabel.isBordered = false
-        titleLabel.drawsBackground = false
-        titleLabel.alignment = .center
-        titleLabel.font = NSFont.systemFont(ofSize: 16, weight: .medium)
-        contentView.addSubview(titleLabel)
-        
-        // Instruction label
-        let instructionLabel = NSTextField(frame: NSRect(x: 20, y: 30, width: 260, height: 30))
-        instructionLabel.stringValue = "Press Escape to cancel or Return to confirm"
-        instructionLabel.isEditable = false
-        instructionLabel.isBordered = false
-        instructionLabel.drawsBackground = false
-        instructionLabel.alignment = .center
-        instructionLabel.font = NSFont.systemFont(ofSize: 12)
-        instructionLabel.textColor = NSColor.secondaryLabelColor
-        contentView.addSubview(instructionLabel)
-        
-        // Shortcut display view
-        recordingView = ShortcutDisplayView(frame: NSRect(x: 50, y: 60, width: 200, height: 40))
-        contentView.addSubview(recordingView)
-        
-        // Start monitoring keyboard events
-        startMonitoring()
+// Simple text field for recording shortcuts
+class ShortcutTextField: NSTextField {
+    struct RecordedShortcut {
+        let keyCode: UInt16
+        let modifiers: UInt32
     }
     
-    override func close() {
-        stopMonitoring()
-        super.close()
-    }
+    var recordedShortcut: RecordedShortcut?
     
-    private func startMonitoring() {
-        // Monitor for key down events
-        monitorGlobal = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event)
-        }
-        
-        monitorLocal = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event)
-            return nil // consume the event
-        }
-        
-        // Monitor for flag changes (modifier keys)
-        NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleFlagEvent(event)
-            return event
-        }
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        setupField()
     }
-    
-    private func stopMonitoring() {
-        if let monitor = monitorGlobal {
-            NSEvent.removeMonitor(monitor)
-        }
-        
-        if let monitor = monitorLocal {
-            NSEvent.removeMonitor(monitor)
-        }
-    }
-    
-    private func handleKeyEvent(_ event: NSEvent) {
-        let keyCode = UInt16(event.keyCode)
-        
-        // Escape cancels
-        if keyCode == 53 {
-            close()
-            return
-        }
-        
-        // Return confirms
-        if keyCode == 36 {
-            // Only confirm if we have a valid shortcut
-            if recordingView.currentKeyCode != nil && recordingView.currentModifiers != 0 {
-                shortcutRecorded?(recordingView.currentKeyCode!, recordingView.currentModifiers)
-                close()
-            }
-            return
-        }
-        
-        // Record the shortcut
-        recordingView.currentKeyCode = keyCode
-        recordingView.currentModifiers = currentModifiers
-        
-        // Force redraw to show current shortcut
-        recordingView.needsDisplay = true
-    }
-    
-    private func handleFlagEvent(_ event: NSEvent) {
-        currentModifiers = 0
-        
-        if event.modifierFlags.contains(.command) {
-            currentModifiers |= UInt32(cmdKey)
-        }
-        
-        if event.modifierFlags.contains(.option) {
-            currentModifiers |= UInt32(optionKey)
-        }
-        
-        if event.modifierFlags.contains(.control) {
-            currentModifiers |= UInt32(controlKey)
-        }
-        
-        if event.modifierFlags.contains(.shift) {
-            currentModifiers |= UInt32(shiftKey)
-        }
-        
-        // Update the view
-        recordingView.currentModifiers = currentModifiers
-        recordingView.needsDisplay = true
-    }
-}
-
-// View to display the current shortcut
-class ShortcutDisplayView: NSView {
-    var currentModifiers: UInt32 = 0
-    var currentKeyCode: UInt16?
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        setupField()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        setupField()
     }
     
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        
-        // Draw background
-        NSColor.controlBackgroundColor.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5).fill()
-        
-        // Draw border
-        NSColor.separatorColor.setStroke()
-        let borderPath = NSBezierPath(roundedRect: NSInsetRect(bounds, 0.5, 0.5), xRadius: 5, yRadius: 5)
-        borderPath.lineWidth = 1
-        borderPath.stroke()
-        
-        // Draw text
-        let text = shortcutDisplayString()
-        
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14, weight: .medium),
-            .foregroundColor: NSColor.labelColor,
-            .paragraphStyle: paragraphStyle
-        ]
-        
-        let stringSize = text.size(withAttributes: attributes)
-        let textRect = NSRect(
-            x: bounds.midX - stringSize.width / 2,
-            y: bounds.midY - stringSize.height / 2,
-            width: stringSize.width,
-            height: stringSize.height
-        )
-        
-        text.draw(in: textRect, withAttributes: attributes)
+    private func setupField() {
+        isEditable = false  // Changed back to false to prevent text editing
+        isSelectable = true
+        isBordered = true
+        drawsBackground = true
+        // Use semantic color for automatic dark mode support
+        if #available(macOS 10.14, *) {
+            backgroundColor = NSColor.controlBackgroundColor
+        } else {
+            backgroundColor = NSColor.textBackgroundColor
+        }
+        alignment = .center
+        // Enhanced typography
+        if #available(macOS 11.0, *) {
+            font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        } else {
+            font = NSFont.systemFont(ofSize: 13)
+        }
+        stringValue = ""
+        focusRingType = .default
     }
     
-    private func shortcutDisplayString() -> String {
-        var result = ""
+    override var acceptsFirstResponder: Bool {
+        return true
+    }
+    
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result {
+            stringValue = "Press shortcut keys..."
+        }
+        return result
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        let keyCode = UInt16(event.keyCode)
+        var modifiers: UInt32 = 0
         
-        // Add modifiers
-        if currentModifiers & UInt32(controlKey) != 0 { result += "⌃" }
-        if currentModifiers & UInt32(optionKey) != 0 { result += "⌥" }
-        if currentModifiers & UInt32(shiftKey) != 0 { result += "⇧" }
-        if currentModifiers & UInt32(cmdKey) != 0 { result += "⌘" }
-        
-        // Add key if present
-        if let keyCode = currentKeyCode {
-            result += keyCodeToChar(keyCode)
+        // Convert NSEvent modifier flags to Carbon modifier flags
+        if event.modifierFlags.contains(.command) {
+            modifiers |= UInt32(cmdKey)
+        }
+        if event.modifierFlags.contains(.option) {
+            modifiers |= UInt32(optionKey)
+        }
+        if event.modifierFlags.contains(.control) {
+            modifiers |= UInt32(controlKey)
+        }
+        if event.modifierFlags.contains(.shift) {
+            modifiers |= UInt32(shiftKey)
         }
         
-        return result.isEmpty ? "Press Keys..." : result
+        // Only record if we have modifiers (prevent recording of just letters)
+        if modifiers != 0 {
+            recordedShortcut = RecordedShortcut(keyCode: keyCode, modifiers: modifiers)
+            stringValue = formatShortcut(keyCode: keyCode, modifiers: modifiers)
+        }
+        
+        // Don't call super.keyDown to prevent normal text processing
+    }
+    
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Intercept key equivalents and treat them as shortcuts
+        keyDown(with: event)
+        return true
+    }
+    
+    override func insertText(_ insertString: Any) {
+        // Prevent any text insertion
+    }
+    
+    override func doCommand(by selector: Selector) {
+        // Prevent any command processing (like character insertion)
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        // Make the field first responder when clicked
+        window?.makeFirstResponder(self)
+        stringValue = "Press shortcut keys..."
+    }
+    
+    private func formatShortcut(keyCode: UInt16, modifiers: UInt32) -> String {
+        var result = ""
+        
+        // Add modifiers in the standard macOS order
+        if modifiers & UInt32(controlKey) != 0 { result += "⌃" }
+        if modifiers & UInt32(optionKey) != 0 { result += "⌥" }
+        if modifiers & UInt32(shiftKey) != 0 { result += "⇧" }
+        if modifiers & UInt32(cmdKey) != 0 { result += "⌘" }
+        
+        // Add the key character
+        result += keyCodeToChar(keyCode)
+        
+        return result
     }
     
     private func keyCodeToChar(_ keyCode: UInt16) -> String {
-        // This is a simplified version - in a real app you'd want a more complete mapping
+        // Map to base character (unshifted version)
         let keyCodes: [UInt16: String] = [
             0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",
-            8: "C", 9: "V", 10: "§", 11: "B", 12: "Q", 13: "W", 14: "E", 15: "R",
+            8: "C", 9: "V", 11: "B", 12: "Q", 13: "W", 14: "E", 15: "R",
             16: "Y", 17: "T", 18: "1", 19: "2", 20: "3", 21: "4", 22: "6", 23: "5",
             24: "=", 25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 30: "]", 31: "O",
-            32: "U", 33: "[", 34: "I", 35: "P", 36: "Return", 37: "L", 38: "J", 39: "'",
+            32: "U", 33: "[", 34: "I", 35: "P", 37: "L", 38: "J", 39: "'",
             40: "K", 41: ";", 42: "\\", 43: ",", 44: "/", 45: "N", 46: "M", 47: ".",
-            48: "Tab", 49: "Space", 50: "`", 51: "Delete", 52: "⌘⏎", 53: "Escape"
-            // Function keys and other special keys would continue...
+            48: "Tab", 49: "Space", 50: "`", 51: "Delete", 53: "Escape",
+            // Function keys
+            122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+            98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12"
         ]
         
-        return keyCodes[keyCode] ?? "?"
+        return keyCodes[keyCode] ?? "Key"
+    }
+}
+
+// Modern non-activating panel with proper styling
+class ModernPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        return false
+    }
+    
+    override var canBecomeMain: Bool {
+        return false
+    }
+    
+    override var acceptsFirstResponder: Bool {
+        return false
+    }
+    
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Don't consume any key events, let them pass through for global shortcuts
+        return false
+    }
+    
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        setupModernStyling()
+    }
+    
+    private func setupModernStyling() {
+        // Modern window appearance with automatic dark mode support
+        titlebarAppearsTransparent = false
+        isMovableByWindowBackground = true
+        
+        // Add subtle shadow and proper materials
+        hasShadow = true
+        
+        // Enhanced background material with automatic dark mode
+        if #available(macOS 10.14, *) {
+            contentView?.wantsLayer = true
+            contentView?.layer?.cornerRadius = 12
+            
+            // Use system material for automatic dark mode
+            if #available(macOS 10.14, *) {
+                contentView?.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            }
+            
+            // Automatic appearance - follows system setting
+            appearance = nil // nil means follow system appearance
+        }
+        
+        // Ensure proper level and behavior
+        level = .floating
+        hidesOnDeactivate = false
+        isReleasedWhenClosed = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    }
+    
+    func updateForCurrentAppearance() {
+        // Update colors and materials for current appearance
+        if #available(macOS 10.14, *) {
+            contentView?.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        }
+        
+        // Force redraw of content
+        contentView?.needsDisplay = true
+    }
+}
+
+// Modern button factory
+class ModernButton {
+    static func createPrimaryButton(title: String, frame: NSRect) -> NSButton {
+        let button = NSButton(frame: frame)
+        button.title = title
+        button.bezelStyle = .rounded
+        button.controlSize = .regular
+        
+        // Enhanced typography with proper system fonts
+        if #available(macOS 11.0, *) {
+            button.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        } else {
+            button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        }
+        
+        // Modern primary button styling with proper semantic colors
+        if #available(macOS 11.0, *) {
+            button.bezelColor = NSColor.controlAccentColor
+            button.contentTintColor = NSColor.white
+        } else {
+            button.bezelColor = NSColor.systemBlue
+        }
+        
+        // Enhanced accessibility
+        if #available(macOS 10.9, *) {
+            button.setAccessibilityRole(.button)
+        }
+        
+        return button
+    }
+    
+    static func createSecondaryButton(title: String, frame: NSRect) -> NSButton {
+        let button = NSButton(frame: frame)
+        button.title = title
+        button.bezelStyle = .rounded
+        button.controlSize = .regular
+        
+        // Enhanced typography
+        if #available(macOS 11.0, *) {
+            button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        } else {
+            button.font = NSFont.systemFont(ofSize: 13)
+        }
+        
+        // Modern secondary button styling with semantic colors
+        if #available(macOS 11.0, *) {
+            button.bezelColor = NSColor.controlColor
+            button.contentTintColor = NSColor.controlTextColor
+        } else {
+            button.bezelColor = NSColor.controlColor
+        }
+        
+        // Enhanced accessibility
+        if #available(macOS 10.9, *) {
+            button.setAccessibilityRole(.button)
+        }
+        
+        return button
+    }
+}
+
+// Modern text label factory
+class ModernLabel {
+    static func createHeadlineLabel(text: String, frame: NSRect) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.stringValue = text
+        label.isEditable = false
+        label.isBordered = false
+        label.drawsBackground = false
+        label.alignment = .center
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        
+        // Enhanced typography hierarchy with proper system fonts
+        if #available(macOS 11.0, *) {
+            label.font = NSFont.systemFont(ofSize: 17, weight: .semibold) // Headline style
+        } else {
+            label.font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        }
+        
+        // Semantic colors for automatic dark mode support
+        if #available(macOS 10.14, *) {
+            label.textColor = NSColor.labelColor
+        } else {
+            label.textColor = NSColor.controlTextColor
+        }
+        
+        return label
+    }
+    
+    static func createBodyLabel(text: String, frame: NSRect) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.stringValue = text
+        label.isEditable = false
+        label.isBordered = false
+        label.drawsBackground = false
+        label.alignment = .center
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        
+        // Enhanced body typography
+        if #available(macOS 11.0, *) {
+            label.font = NSFont.systemFont(ofSize: 13, weight: .regular) // Body style
+        } else {
+            label.font = NSFont.systemFont(ofSize: 13)
+        }
+        
+        // Semantic colors for automatic dark mode support
+        if #available(macOS 10.14, *) {
+            label.textColor = NSColor.labelColor
+        } else {
+            label.textColor = NSColor.controlTextColor
+        }
+        
+        return label
+    }
+    
+    static func createCaptionLabel(text: String, frame: NSRect) -> NSTextField {
+        let label = NSTextField(frame: frame)
+        label.stringValue = text
+        label.isEditable = false
+        label.isBordered = false
+        label.drawsBackground = false
+        label.alignment = .center
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        
+        // Enhanced caption typography
+        if #available(macOS 11.0, *) {
+            label.font = NSFont.systemFont(ofSize: 11, weight: .regular) // Caption style
+        } else {
+            label.font = NSFont.systemFont(ofSize: 11)
+        }
+        
+        // Semantic colors for automatic dark mode support
+        if #available(macOS 10.14, *) {
+            label.textColor = NSColor.secondaryLabelColor
+        } else {
+            label.textColor = NSColor.disabledControlTextColor
+        }
+        
+        return label
     }
 } 
