@@ -1,5 +1,13 @@
+//
+//  GlobalShortcutManager.swift
+//  ClipTyper
+//
+//  Copyright © 2025 Ralf Sturhan. All rights reserved.
+//
+
 import Cocoa
 import Carbon
+import ApplicationServices
 
 class GlobalShortcutManager {
     private var eventHandler: Any?
@@ -13,7 +21,7 @@ class GlobalShortcutManager {
         unregisterShortcut()
     }
     
-    func registerShortcut(callback: @escaping () -> Void, keyCode: UInt16? = nil, modifiers: UInt32? = nil) {
+    func registerShortcut(callback: @escaping () -> Void, keyCode: UInt16? = nil, modifiers: UInt32? = nil) -> Bool {
         shortcutCallback = callback
         
         // Update shortcut if provided
@@ -23,6 +31,15 @@ class GlobalShortcutManager {
         
         if let modifiers = modifiers {
             self.modifiers = modifiers
+        }
+        
+        // Unregister existing shortcut first
+        unregisterShortcut()
+        
+        // Check if we have accessibility permissions
+        let accessEnabled = AXIsProcessTrusted()
+        if !accessEnabled {
+            print("Accessibility permissions not granted - shortcut registration may fail")
         }
         
         // Create event tap to listen for keydown events
@@ -42,8 +59,8 @@ class GlobalShortcutManager {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("Failed to create event tap")
-            return
+            print("Failed to create event tap - accessibility permissions may be required")
+            return false
         }
         
         // Create a run loop source from the event tap
@@ -57,6 +74,9 @@ class GlobalShortcutManager {
         
         // Store the eventTap to be able to unregister later
         eventHandler = eventTap
+        
+        print("Successfully registered global shortcut: \(getCurrentShortcutString())")
+        return true
     }
     
     func unregisterShortcut() {
@@ -70,18 +90,16 @@ class GlobalShortcutManager {
         }
     }
     
-    func updateShortcut(keyCode: UInt16, modifiers: UInt32) {
-        // Unregister current shortcut
-        unregisterShortcut()
-        
+    func updateShortcut(keyCode: UInt16, modifiers: UInt32) -> Bool {
         // Save new values
         self.keyCode = keyCode
         self.modifiers = modifiers
         
         // Re-register with new values if we have a callback
         if let callback = shortcutCallback {
-            registerShortcut(callback: callback)
+            return registerShortcut(callback: callback)
         }
+        return false
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -133,6 +151,11 @@ class GlobalShortcutManager {
     // Get the current shortcut as a string
     func getCurrentShortcutString() -> String {
         return modifiersToString()
+    }
+    
+    // Check if shortcut is currently registered
+    func isShortcutRegistered() -> Bool {
+        return eventHandler != nil
     }
     
     // Helper function to convert key code to character

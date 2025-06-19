@@ -1,3 +1,10 @@
+//
+//  AppDelegate.swift
+//  ClipTyper
+//
+//  Copyright © 2025 Ralf Sturhan. All rights reserved.
+//
+
 import Cocoa
 import Carbon
 
@@ -136,11 +143,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupMenu() {
         statusMenu = NSMenu()
         
-        // Main action
+        // === PRIMARY ACTIONS ===
         mainMenuItem = NSMenuItem(title: "Type Clipboard (\(shortcutManager.getCurrentShortcutString()))", action: #selector(startTypingProcess), keyEquivalent: "")
         statusMenu.addItem(mainMenuItem)
         
-        // Clipboard status
+        // Clipboard status (informational)
         let clipboardLength = clipboardManager.getClipboardCharacterCount()
         clipboardStatusMenuItem = NSMenuItem(title: "Clipboard: \(clipboardLength) characters", action: nil, keyEquivalent: "")
         clipboardStatusMenuItem.isEnabled = false
@@ -148,52 +155,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         statusMenu.addItem(NSMenuItem.separator())
         
+        // === TYPING SETTINGS ===
         // Delay slider
-        let delayItem = NSMenuItem(title: "Delay before typing:", action: nil, keyEquivalent: "")
+        let delayItem = NSMenuItem(title: "Typing Delay:", action: nil, keyEquivalent: "")
         let delayView = createDelaySliderView()
         delayItem.view = delayView
         statusMenu.addItem(delayItem)
         
+        // Character warning threshold
+        let thresholdItem = NSMenuItem(title: "Character Warning Threshold: \(preferencesManager.getCharacterWarningThreshold())", action: #selector(changeWarningThreshold), keyEquivalent: "")
+        statusMenu.addItem(thresholdItem)
+        
         // Auto-clear clipboard option
-        let autoClearItem = NSMenuItem(title: "Auto-clear clipboard after typing", action: #selector(toggleAutoClear), keyEquivalent: "")
+        let autoClearItem = NSMenuItem(title: "Auto-clear Clipboard After Typing", action: #selector(toggleAutoClear), keyEquivalent: "")
         autoClearItem.state = preferencesManager.getAutoClearClipboard() ? .on : .off
         statusMenu.addItem(autoClearItem)
         
+        statusMenu.addItem(NSMenuItem.separator())
+        
+        // === DISPLAY SETTINGS ===
+        // Countdown display options (as submenu)
+        let countdownMenuItem = NSMenuItem(title: "Countdown Display", action: nil, keyEquivalent: "")
+        let countdownSubmenu = NSMenu()
+        
+        let dialogItem = NSMenuItem(title: "Show in Dialog", action: #selector(selectDialogCountdown), keyEquivalent: "")
+        dialogItem.state = !preferencesManager.getShowCountdownInMenuBar() ? .on : .off
+        countdownSubmenu.addItem(dialogItem)
+        
+        let menuBarItem = NSMenuItem(title: "Show in Menu Bar", action: #selector(selectMenuBarCountdown), keyEquivalent: "")
+        menuBarItem.state = preferencesManager.getShowCountdownInMenuBar() ? .on : .off
+        countdownSubmenu.addItem(menuBarItem)
+        
+        countdownMenuItem.submenu = countdownSubmenu
+        statusMenu.addItem(countdownMenuItem)
+        
         // Show character count option
-        let showCountItem = NSMenuItem(title: "Show character count in menu bar", action: #selector(toggleShowCharacterCount), keyEquivalent: "")
+        let showCountItem = NSMenuItem(title: "Show Character Count in Menu Bar", action: #selector(toggleShowCharacterCount), keyEquivalent: "")
         showCountItem.state = preferencesManager.getShowCharacterCount() ? .on : .off
         statusMenu.addItem(showCountItem)
         
+        statusMenu.addItem(NSMenuItem.separator())
+        
+        // === SYSTEM SETTINGS ===
+        // Change keyboard shortcut
+        statusMenu.addItem(NSMenuItem(title: "Change Keyboard Shortcut…", action: #selector(changeKeyboardShortcut), keyEquivalent: ""))
+        
         // Autostart option
-        let autostartItem = NSMenuItem(title: "Start ClipTyper at login", action: #selector(toggleAutostart), keyEquivalent: "")
+        let autostartItem = NSMenuItem(title: "Start ClipTyper at Login", action: #selector(toggleAutostart), keyEquivalent: "")
         autostartItem.state = preferencesManager.getAutostart() ? .on : .off
         statusMenu.addItem(autostartItem)
         
-        // Countdown display options
-        let countdownItem = NSMenuItem(title: "Countdown display:", action: nil, keyEquivalent: "")
-        statusMenu.addItem(countdownItem)
-        
-        let dialogItem = NSMenuItem(title: "    Show in dialog", action: #selector(selectDialogCountdown), keyEquivalent: "")
-        dialogItem.state = !preferencesManager.getShowCountdownInMenuBar() ? .on : .off
-        statusMenu.addItem(dialogItem)
-        
-        let menuBarItem = NSMenuItem(title: "    Show in menu bar", action: #selector(selectMenuBarCountdown), keyEquivalent: "")
-        menuBarItem.state = preferencesManager.getShowCountdownInMenuBar() ? .on : .off
-        statusMenu.addItem(menuBarItem)
-        
         statusMenu.addItem(NSMenuItem.separator())
         
-        // Change keyboard shortcut
-        statusMenu.addItem(NSMenuItem(title: "Change Keyboard Shortcut", action: #selector(changeKeyboardShortcut), keyEquivalent: ""))
-        
-        // Character warning threshold
-        let thresholdItem = NSMenuItem(title: "Character warning threshold: \(preferencesManager.getCharacterWarningThreshold())", action: #selector(changeWarningThreshold), keyEquivalent: "")
-        statusMenu.addItem(thresholdItem)
-        
-        statusMenu.addItem(NSMenuItem.separator())
-        
-        // Quit option
-        statusMenu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        // === ABOUT & QUIT ===
+        statusMenu.addItem(NSMenuItem(title: "About ClipTyper", action: #selector(showAbout), keyEquivalent: ""))
+        statusMenu.addItem(NSMenuItem(title: "Quit ClipTyper", action: #selector(quitApp), keyEquivalent: "q"))
     }
     
     private func createDelaySliderView() -> NSView {
@@ -662,12 +678,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let keyCode = preferencesManager.getKeyboardShortcutKeyCode()
         let modifiers = preferencesManager.getKeyboardShortcutModifiers()
         
-        shortcutManager.registerShortcut(callback: { [weak self] in
+        let success = shortcutManager.registerShortcut(callback: { [weak self] in
             // When shortcut is pressed, activate typing process
             DispatchQueue.main.async {
                 self?.startTypingProcess()
             }
         }, keyCode: keyCode, modifiers: modifiers)
+        
+        if !success {
+            // Retry after a short delay - accessibility permissions might be granted after app launch
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                print("Retrying shortcut registration...")
+                _ = self?.shortcutManager.registerShortcut(callback: { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.startTypingProcess()
+                    }
+                }, keyCode: keyCode, modifiers: modifiers)
+            }
+        }
     }
     
     private func requestAccessibilityPermission() {
@@ -677,6 +705,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !accessEnabled {
             showAlert(title: "Accessibility Permission Required", 
                       message: "ClipTyper needs accessibility permissions to simulate keyboard typing. Please grant permission in System Preferences > Security & Privacy > Privacy > Accessibility.")
+            
+            // Start monitoring for accessibility permission changes
+            startAccessibilityPermissionMonitoring()
+        }
+    }
+    
+    private func startAccessibilityPermissionMonitoring() {
+        // Check periodically if accessibility permissions have been granted
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            let accessEnabled = AXIsProcessTrusted()
+            
+            if accessEnabled {
+                print("Accessibility permissions granted - re-registering shortcut")
+                timer.invalidate()
+                
+                // Re-register the shortcut now that we have permissions
+                DispatchQueue.main.async {
+                    self?.registerShortcut()
+                }
+            }
         }
     }
     
@@ -875,7 +923,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case .alertFirstButtonReturn: // OK
             if let newShortcut = inputField.recordedShortcut {
                 preferencesManager.setKeyboardShortcut(keyCode: newShortcut.keyCode, modifiers: newShortcut.modifiers)
-                shortcutManager.updateShortcut(keyCode: newShortcut.keyCode, modifiers: newShortcut.modifiers)
+                _ = shortcutManager.updateShortcut(keyCode: newShortcut.keyCode, modifiers: newShortcut.modifiers)
                 updateMenuItemShortcut()
                 
                 showConfirmation("Shortcut changed to: \(shortcutManager.getCurrentShortcutString())")
@@ -888,7 +936,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let defaultModifiers: UInt32 = UInt32(optionKey) | UInt32(cmdKey) // ⌥⌘
             
             preferencesManager.setKeyboardShortcut(keyCode: defaultKeyCode, modifiers: defaultModifiers)
-            shortcutManager.updateShortcut(keyCode: defaultKeyCode, modifiers: defaultModifiers)
+            _ = shortcutManager.updateShortcut(keyCode: defaultKeyCode, modifiers: defaultModifiers)
             updateMenuItemShortcut()
             
             showConfirmation("Shortcut reset to default: ⌥⌘V")
@@ -927,6 +975,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         confirmAlert.runModal()
+    }
+    
+    @objc private func showAbout() {
+        let aboutPanel = NSAlert()
+        aboutPanel.messageText = "ClipTyper"
+        
+        // Get version from bundle or use default
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        
+        aboutPanel.informativeText = """
+Version \(version) (Build \(build))
+
+A macOS utility that simulates keyboard typing of clipboard contents, designed for environments with restricted copy-paste functionality.
+
+© 2025 Ralf Sturhan. All rights reserved.
+
+ClipTyper requires Accessibility permissions to simulate keyboard input.
+"""
+        
+        aboutPanel.alertStyle = .informational
+        aboutPanel.addButton(withTitle: "OK")
+        
+        // Add icon if available
+        if let appIcon = NSImage(named: "AppIcon") {
+            aboutPanel.icon = appIcon
+        }
+        
+        aboutPanel.runModal()
     }
     
     @objc private func quitApp() {

@@ -1,3 +1,10 @@
+//
+//  PreferencesManager.swift
+//  ClipTyper
+//
+//  Copyright © 2025 Ralf Sturhan. All rights reserved.
+//
+
 import Foundation
 
 class PreferencesManager {

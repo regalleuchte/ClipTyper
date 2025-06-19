@@ -1,3 +1,10 @@
+//
+//  KeyboardSimulator.swift
+//  ClipTyper
+//
+//  Copyright © 2025 Ralf Sturhan. All rights reserved.
+//
+
 import Cocoa
 
 class KeyboardSimulator {

@@ -1,9 +1,16 @@
+//
+//  LoginItemManager.swift
+//  ClipTyper
+//
+//  Copyright © 2025 Ralf Sturhan. All rights reserved.
+//
+
 import Cocoa
 import ServiceManagement
 
 class LoginItemManager {
     private var bundleIdentifier: String {
-        return Bundle.main.bundleIdentifier ?? "com.example.ClipTyper"
+        return Bundle.main.bundleIdentifier ?? "de.sturhan.ClipTyper"
     }
     
     // Check if the app is currently set to launch at login

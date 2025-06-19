@@ -8,7 +8,7 @@
     <true/>
     <key>com.apple.security.application-groups</key>
     <array>
-        <string>com.example.ClipTyper</string>
+        <string>de.sturhan.ClipTyper</string>
     </array>
 </dict>
 </plist>

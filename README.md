@@ -1,112 +1,143 @@
 # ClipTyper
 
-A macOS utility that simulates keyboard typing of clipboard contents. Perfect for scenarios where copy-paste is restricted, such as secure remote sessions, VPNs, RDPs, and jump hosts.
+A macOS status bar utility that simulates keyboard typing of clipboard contents. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
 
 ## Features
 
-- Simulates keyboard typing of clipboard contents
-- Works regardless of keyboard language settings
-- Preserves all text formatting, capitalization, and special characters
-- Fully supports Unicode characters
-- Configurable delay before typing begins (0.5s-10s)
-- Optional auto-clearing of clipboard after typing
-- Warning dialog for large text
-- Runs completely offline
+### Core Functionality
+- **Unicode-based typing simulation** - Works regardless of keyboard layout or language
+- **Global keyboard shortcut** - Default ⌥⌘V (Option+Command+V), fully customizable
+- **Configurable typing delay** - 0.5s to 10s countdown before typing begins
+- **Character warning system** - Alerts for large text (configurable threshold)
+- **Auto-clear clipboard** - Optional security feature to clear clipboard after typing
+- **Offline operation** - No network connectivity required
 
-## Usage
+### User Experience
+- **Menu bar integration** - Clean status bar presence with optional character count display
+- **Countdown display options** - Choose between dialog window or menu bar countdown
+- **Accessibility compliance** - Follows macOS accessibility guidelines
+- **Login item support** - Optional autostart with system boot
 
-1. Copy text to clipboard
-2. Click the ClipTyper menu bar icon or press ⌥⌘V (Option+Command+V)
-3. Position your cursor where you want the text to appear
-4. Wait for the countdown to complete
-5. The text will be typed automatically
-
-## Settings
-
-Right-click on the ClipTyper menu bar icon to access settings:
-
-- Adjust typing delay (0.5s-10s)
-- Toggle auto-clear clipboard after typing
-- Toggle character count display in menu bar
-- Choose countdown display method (dialog or menu bar)
-- Set character warning threshold
-
-## Requirements
-
-- macOS 12.0 or later
-- Apple Silicon (M-series) or Intel processor
+### Security & Privacy
+- **No persistent storage** - No clipboard history or data retention
+- **Local processing only** - All operations performed locally
+- **Developer ID signed** - Code signed for security and trust
 
 ## Installation
 
-### Option 1: Build From Source
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourname/ClipTyper.git
-   cd ClipTyper
-   ```
-
-2. Build using Swift Package Manager:
-   ```bash
-   swift build -c release
-   ```
-
-3. Run the build script to create the app:
-   ```bash
-   ./build.sh
-   ```
-
-4. Move the app to your Applications folder:
-   ```bash
-   mv ClipTyper.app /Applications/
-   ```
-
-### Option 2: Download Pre-built App
-
-1. Download the latest release from the Releases page
-2. Move ClipTyper.app to your Applications folder
-3. Launch ClipTyper
+### Download (Recommended)
+1. Download `ClipTyper-1.0-Signed.dmg` from releases
+2. Mount the DMG and drag ClipTyper to Applications
+3. Launch ClipTyper from Applications
 4. Grant Accessibility permissions when prompted
 
-## Permissions
+### Build from Source
+```bash
+# Clone repository
+git clone <repository-url>
+cd ClipTyper
 
-ClipTyper requires Accessibility permissions to simulate keyboard input. When you first launch the app, you'll be prompted to grant these permissions in System Preferences > Security & Privacy > Privacy > Accessibility.
+# Build signed app (requires Developer ID certificate)
+./build-signed.sh
+
+# Or build unsigned version
+./build-dmg.sh
+```
+
+## Usage
+
+1. **Copy text** to your clipboard
+2. **Activate ClipTyper** using:
+   - Global shortcut: ⌥⌘V (Option+Command+V)
+   - Right-click menu bar icon
+3. **Position cursor** where you want text to appear
+4. **Wait for countdown** - ClipTyper will type automatically
+
+## Settings
+
+Access settings by left-clicking the ClipTyper menu bar icon:
+
+### Typing Settings
+- **Typing Delay** - Adjustable countdown before typing begins (0.5s-10s)
+- **Character Warning Threshold** - Set limit for large text warnings (default: 100)
+- **Auto-clear Clipboard** - Automatically clear clipboard after typing (security feature)
+
+### Display Settings  
+- **Countdown Display** - Choose between dialog window or menu bar countdown
+- **Show Character Count** - Display clipboard character count in menu bar
+
+### System Settings
+- **Change Keyboard Shortcut** - Customize the global activation shortcut
+- **Start at Login** - Enable/disable autostart with macOS
+
+## Requirements
+
+- **macOS 15.4+** (broader compatibility available)
+- **Apple Silicon or Intel** processor
+- **Accessibility permissions** - Required for keyboard simulation
+- **Code signing** - Developer ID Application certificate for distribution builds
+
+## Architecture
+
+### Core Components
+- `AppDelegate.swift` - Main application controller and UI management
+- `KeyboardSimulator.swift` - Unicode-based typing simulation engine
+- `GlobalShortcutManager.swift` - Global keyboard shortcut handling
+- `ClipboardManager.swift` - Clipboard monitoring via timer polling
+- `PreferencesManager.swift` - UserDefaults-based settings management
+- `LoginItemManager.swift` - Autostart functionality using modern macOS APIs
+
+### Key Design Patterns
+- **Manager pattern** - Specialized classes coordinated by AppDelegate
+- **Timer-based monitoring** - Polls clipboard changes every 0.5 seconds
+- **Unicode-based typing** - Bypasses keyboard layout dependencies using CGEvent
+- **Callback-based communication** - Loose coupling between components
 
 ## Development
 
-### Project Structure
+### Building
+```bash
+# Development build
+swift build -c release
 
-- `main.swift` - Application entry point
-- `AppDelegate.swift` - Core application logic and UI
-- `PreferencesManager.swift` - Manages user preferences
-- `ClipboardManager.swift` - Handles clipboard monitoring and operations
-- `KeyboardSimulator.swift` - Simulates keyboard typing
-- `GlobalShortcutManager.swift` - Manages global keyboard shortcuts
+# Create app bundle
+./build.sh
 
-### Building a DMG for Distribution
+# Create signed DMG for distribution
+./build-signed.sh
+```
 
-To create a distributable DMG file:
+### Commands (see CLAUDE.md)
+- Build: `swift build -c release`
+- Create app bundle: `./build.sh`
+- Run from build: `./.build/release/ClipTyper`
+- Create signed DMG: `./build-signed.sh`
 
-1. Build the app using `./build.sh`
-2. Use a tool like `create-dmg` to package the app:
-   ```bash
-   create-dmg \
-     --volname "ClipTyper Installer" \
-     --volicon "AppIcon.icns" \
-     --window-pos 200 120 \
-     --window-size 800 400 \
-     --icon-size 100 \
-     --icon "ClipTyper.app" 200 190 \
-     --hide-extension "ClipTyper.app" \
-     --app-drop-link 600 185 \
-     "ClipTyper.dmg" \
-     "ClipTyper.app"
-   ```
+### Distribution
+The project includes automated build scripts for creating distributable DMGs:
+- `build-dmg.sh` - Creates unsigned DMG for development/testing
+- `build-signed.sh` - Creates code-signed DMG for public distribution
+
+## Troubleshooting
+
+### Shortcut Not Working
+1. Check Accessibility permissions in System Settings → Privacy & Security → Accessibility
+2. Remove and re-add ClipTyper from Accessibility list
+3. Try changing shortcut to different key combination
+
+### App Won't Launch
+- Ensure you're running macOS 12.0 or later
+- For unsigned builds: Right-click app → Open (first launch only)
+- Check Console.app for error messages
 
 ## License
+
+Copyright © 2025 Ralf Sturhan. All rights reserved.
 
 This software is provided "as is" without warranty of any kind.
 
 ---
 
-Developed for professionals who work across multiple secure systems where traditional copy-paste functionality is restricted. 
+**Target Users**: Security engineers, MSP employees, and engineers working through VPN/RDP jump hosts with restricted copy-paste functionality.
+
+**Distribution**: Mac App Store (preferred) or notarized DMG (fallback)
