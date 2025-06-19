@@ -7,7 +7,7 @@
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
+    <string>ClipTyper</string>
     <key>CFBundleIdentifier</key>
     <string>de.sturhan.ClipTyper</string>
     <key>CFBundleInfoDictionaryVersion</key>

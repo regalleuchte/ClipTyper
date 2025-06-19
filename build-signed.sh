@@ -48,6 +48,14 @@ sed -i '' 's/$(EXECUTABLE_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Conte
 sed -i '' 's/$(PRODUCT_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
 sed -i '' 's/$(MACOSX_DEPLOYMENT_TARGET)/12.0/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
 
+# Copy icon file
+if [ -f "./Sources/Resources/ClipTyper.icns" ]; then
+    cp "./Sources/Resources/ClipTyper.icns" "${BUILD_DIR}/${APP_NAME}.app/Contents/Resources/"
+    echo "✅ Icon copied successfully!"
+else
+    echo "⚠️  Warning: ClipTyper.icns not found"
+fi
+
 # Make executable
 chmod +x "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 

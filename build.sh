@@ -22,6 +22,14 @@ if [ $? -eq 0 ]; then
     cp ./Info.plist ./ClipTyper.app/Contents/
     cp ./ClipTyper.entitlements ./ClipTyper.app/Contents/
     
+    # Copy icon file
+    if [ -f "./Sources/Resources/ClipTyper.icns" ]; then
+        cp ./Sources/Resources/ClipTyper.icns ./ClipTyper.app/Contents/Resources/
+        echo "Icon copied successfully!"
+    else
+        echo "Warning: ClipTyper.icns not found"
+    fi
+    
     echo "ClipTyper.app created successfully!"
     echo "To run the app, execute: ./ClipTyper.app/Contents/MacOS/ClipTyper"
     

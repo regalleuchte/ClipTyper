@@ -37,13 +37,52 @@ mkdir -p "${BUILD_DIR}/${APP_NAME}.app/Contents/Resources"
 # Copy executable
 cp "./.build/release/${APP_NAME}" "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS/"
 
-# Copy Info.plist
+# Copy and process Info.plist to replace placeholder values
 cp "./Info.plist" "${BUILD_DIR}/${APP_NAME}.app/Contents/"
+sed -i '' 's/$(EXECUTABLE_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
+sed -i '' 's/$(PRODUCT_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
+sed -i '' 's/$(MACOSX_DEPLOYMENT_TARGET)/12.0/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
+
+# Copy icon file
+if [ -f "./Sources/Resources/ClipTyper.icns" ]; then
+    cp "./Sources/Resources/ClipTyper.icns" "${BUILD_DIR}/${APP_NAME}.app/Contents/Resources/"
+    echo "✅ Icon copied successfully!"
+else
+    echo "⚠️  Warning: ClipTyper.icns not found"
+fi
 
 # Make executable
 chmod +x "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 
 echo "✅ App bundle created!"
+
+# Optional code signing (if Developer ID certificate is available)
+SIGNING_IDENTITY="Developer ID Application: RALF STURHAN (5S5J7MMS7A)"
+if security find-identity -v -p codesigning | grep -q "${SIGNING_IDENTITY}"; then
+    echo "🔐 Code signing app..."
+    
+    # Clean extended attributes that can cause signing issues
+    xattr -cr "${BUILD_DIR}/${APP_NAME}.app" 2>/dev/null || true
+    
+    codesign --force \
+             --deep \
+             --entitlements "./ClipTyper.entitlements" \
+             --sign "${SIGNING_IDENTITY}" \
+             --timestamp \
+             --options runtime \
+             "${BUILD_DIR}/${APP_NAME}.app"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ App signed successfully!"
+        SIGNED_STATUS="Code signed with Developer ID Application certificate"
+    else
+        echo "⚠️  Code signing failed, continuing with unsigned build"
+        SIGNED_STATUS="Unsigned (will show security warning)"
+    fi
+else
+    echo "ℹ️  No Developer ID certificate found, creating unsigned build"
+    SIGNED_STATUS="Unsigned (will show security warning)"
+fi
 
 # Create DMG
 echo "💿 Creating DMG..."
@@ -69,7 +108,7 @@ echo ""
 echo "📋 Distribution Summary:"
 echo "  • File: ${DMG_NAME}.dmg"
 echo "  • Size: $(du -h "${DMG_NAME}.dmg" | cut -f1)"
-echo "  • Status: Unsigned (will show security warning)"
+echo "  • Status: ${SIGNED_STATUS}"
 echo ""
 echo "🚀 Next Steps:"
 echo "  1. Test the DMG by mounting and installing"
