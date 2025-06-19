@@ -9,18 +9,40 @@ import Cocoa
 import Carbon
 import ApplicationServices
 
+/// Manages global keyboard shortcuts using Core Graphics event taps
+/// 
+/// This class provides system-wide keyboard shortcut functionality that works
+/// even when the application is not in focus. It uses CGEvent taps to monitor
+/// keyboard events and trigger callbacks when registered shortcuts are detected.
+/// 
+/// ## Default Shortcut
+/// - Key: V (key code 9)
+/// - Modifiers: Option + Command
+/// 
+/// ## Requirements
+/// - Accessibility permissions
+/// - macOS 12.0+
 class GlobalShortcutManager {
     private var eventHandler: Any?
     private var shortcutCallback: (() -> Void)?
     
-    // Shortcut settings - will be replaced with preferences
-    private var keyCode: UInt16 = 9 // V key
-    private var modifiers: UInt32 = UInt32(optionKey) | UInt32(cmdKey)
+    /// Current shortcut key code (default: 9 for V key)
+    private var keyCode: UInt16 = Constants.defaultKeyCode
+    /// Current shortcut modifier flags (default: Option + Command)
+    private var modifiers: UInt32 = Constants.defaultModifiers
     
     deinit {
         unregisterShortcut()
     }
     
+    /// Registers a global keyboard shortcut with the system
+    /// 
+    /// - Parameters:
+    ///   - callback: Closure to execute when shortcut is triggered
+    ///   - keyCode: Optional key code (defaults to current value)
+    ///   - modifiers: Optional modifier flags (defaults to current value)
+    /// - Returns: True if registration succeeded, false otherwise
+    /// - Note: Requires accessibility permissions to function
     func registerShortcut(callback: @escaping () -> Void, keyCode: UInt16? = nil, modifiers: UInt32? = nil) -> Bool {
         shortcutCallback = callback
         
@@ -79,6 +101,10 @@ class GlobalShortcutManager {
         return true
     }
     
+    /// Unregisters the current global shortcut and cleans up resources
+    /// 
+    /// This method should be called before the manager is deallocated
+    /// to properly clean up the event tap and release system resources.
     func unregisterShortcut() {
         guard let eventTap = eventHandler else { return }
         
@@ -90,6 +116,12 @@ class GlobalShortcutManager {
         }
     }
     
+    /// Updates the registered shortcut to use new key code and modifiers
+    /// 
+    /// - Parameters:
+    ///   - keyCode: New key code to use
+    ///   - modifiers: New modifier flags to use
+    /// - Returns: True if update succeeded, false otherwise
     func updateShortcut(keyCode: UInt16, modifiers: UInt32) -> Bool {
         // Save new values
         self.keyCode = keyCode

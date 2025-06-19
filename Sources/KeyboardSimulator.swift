@@ -7,8 +7,32 @@
 
 import Cocoa
 
+/// Handles keyboard simulation using Core Graphics events
+/// 
+/// This class provides Unicode-based text typing that works across different
+/// keyboard layouts and languages. It uses CGEvent API to simulate typing
+/// at the system level, bypassing keyboard layout dependencies.
+/// 
+/// ## Requirements
+/// - Accessibility permissions must be granted
+/// - macOS 12.0+
+/// 
+/// ## Usage
+/// ```swift
+/// let simulator = KeyboardSimulator()
+/// simulator.typeText("Hello, World! 🌍")
+/// ```
 class KeyboardSimulator {
     
+    /// Types the specified text using Unicode-based keyboard simulation
+    /// 
+    /// This method converts text to Unicode scalars and uses CGEvent to simulate
+    /// typing character by character. It handles complex Unicode including emoji
+    /// and multi-byte characters correctly.
+    /// 
+    /// - Parameter text: The text to type. Supports full Unicode including emoji
+    /// - Note: Requires accessibility permissions to function
+    /// - Warning: Will silently fail if accessibility permissions are not granted
     func typeText(_ text: String) {
         // Check accessibility permissions
         guard AXIsProcessTrusted() else {
@@ -20,7 +44,13 @@ class KeyboardSimulator {
         sendUnicode(text)
     }
     
-    /// Injects text via CGEvent handling complex Unicode including emoji
+    /// Sends Unicode text via Core Graphics events
+    /// 
+    /// This private method handles the low-level details of converting text to
+    /// Unicode scalars and creating CGEvent key events for each character.
+    /// 
+    /// - Parameter text: The text to convert and send as keyboard events
+    /// - Implementation: Uses UTF-16 encoding and CGEvent keyboard events
     private func sendUnicode(_ text: String) {
         guard let source = CGEventSource(stateID: .hidSystemState) else {
             print("Failed to create event source")

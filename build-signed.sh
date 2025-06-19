@@ -9,7 +9,7 @@ PROJECT_DIR="$(dirname "$0")"
 cd "$PROJECT_DIR"
 
 APP_NAME="ClipTyper"
-VERSION="1.0"
+VERSION="1.1"
 DMG_NAME="${APP_NAME}-${VERSION}-Signed"
 BUILD_DIR="./build"
 DMG_DIR="./dmg-build"

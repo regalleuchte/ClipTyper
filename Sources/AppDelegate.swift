@@ -982,7 +982,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         aboutPanel.messageText = "ClipTyper"
         
         // Get version from bundle or use default
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         
         aboutPanel.informativeText = """

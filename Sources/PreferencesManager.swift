@@ -7,30 +7,37 @@
 
 import Foundation
 
+/// Manages user preferences and application settings
+/// 
+/// This class provides a centralized interface for managing all user preferences,
+/// including typing delays, keyboard shortcuts, and display options.
 class PreferencesManager {
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     
-    // Preference keys
-    private let typingDelayKey = "typingDelay"
-    private let autoClearClipboardKey = "autoClearClipboard"
-    private let showCharacterCountKey = "showCharacterCount"
-    private let characterWarningThresholdKey = "characterWarningThreshold"
-    private let showCountdownInMenuBarKey = "showCountdownInMenuBar"
-    private let keyboardShortcutKeyCodeKey = "keyboardShortcutKeyCode"
-    private let keyboardShortcutModifiersKey = "keyboardShortcutModifiers"
-    private let autostartKey = "autostart"
+    // Preference keys (using constants for consistency)
+    private let typingDelayKey = Constants.PreferenceKeys.typingDelay
+    private let autoClearClipboardKey = Constants.PreferenceKeys.autoClearClipboard
+    private let showCharacterCountKey = Constants.PreferenceKeys.showCharacterCount
+    private let characterWarningThresholdKey = Constants.PreferenceKeys.characterWarningThreshold
+    private let showCountdownInMenuBarKey = Constants.PreferenceKeys.showCountdownInMenuBar
+    private let keyboardShortcutKeyCodeKey = Constants.PreferenceKeys.keyboardShortcutKeyCode
+    private let keyboardShortcutModifiersKey = Constants.PreferenceKeys.keyboardShortcutModifiers
+    private let autostartKey = Constants.PreferenceKeys.autostart
     
-    // Default values
-    private let defaultTypingDelay = 2.0
+    // Default values (using constants for consistency)
+    private let defaultTypingDelay = Constants.defaultTypingDelay
     private let defaultAutoClearClipboard = false
     private let defaultShowCharacterCount = false
-    private let defaultCharacterWarningThreshold = 100
+    private let defaultCharacterWarningThreshold = Constants.defaultCharacterWarningThreshold
     private let defaultShowCountdownInMenuBar = false
-    private let defaultKeyboardShortcutKeyCode: UInt16 = 9 // V key
-    private let defaultKeyboardShortcutModifiers: UInt32 = 1048840 // Option+Command
+    private let defaultKeyboardShortcutKeyCode = Constants.defaultKeyCode
+    private let defaultKeyboardShortcutModifiers = Constants.defaultModifiers
     private let defaultAutostart = false
     
-    init() {
+    /// Initialize with optional UserDefaults instance (useful for testing)
+    /// - Parameter userDefaults: UserDefaults instance to use (defaults to .standard)
+    init(userDefaults: UserDefaults = .standard) {
+        self.defaults = userDefaults
         registerDefaults()
     }
     
@@ -49,68 +56,103 @@ class PreferencesManager {
         defaults.register(defaults: defaultValues)
     }
     
-    // MARK: - Getters
+    // MARK: - Computed Properties
     
-    func getTypingDelay() -> Double {
-        return defaults.double(forKey: typingDelayKey)
+    /// Typing delay in seconds before text is typed
+    var typingDelay: Double {
+        get { defaults.double(forKey: typingDelayKey) }
+        set { defaults.set(newValue, forKey: typingDelayKey) }
     }
     
-    func getAutoClearClipboard() -> Bool {
-        return defaults.bool(forKey: autoClearClipboardKey)
+    /// Whether to automatically clear clipboard after typing
+    var autoClearClipboard: Bool {
+        get { defaults.bool(forKey: autoClearClipboardKey) }
+        set { defaults.set(newValue, forKey: autoClearClipboardKey) }
     }
     
-    func getShowCharacterCount() -> Bool {
-        return defaults.bool(forKey: showCharacterCountKey)
+    /// Whether to show character count in menu bar
+    var showCharacterCount: Bool {
+        get { defaults.bool(forKey: showCharacterCountKey) }
+        set { defaults.set(newValue, forKey: showCharacterCountKey) }
     }
     
-    func getCharacterWarningThreshold() -> Int {
-        return defaults.integer(forKey: characterWarningThresholdKey)
+    /// Character count threshold for showing warnings
+    var characterWarningThreshold: Int {
+        get { defaults.integer(forKey: characterWarningThresholdKey) }
+        set { defaults.set(newValue, forKey: characterWarningThresholdKey) }
     }
     
-    func getShowCountdownInMenuBar() -> Bool {
-        return defaults.bool(forKey: showCountdownInMenuBarKey)
+    /// Whether to show countdown in menu bar instead of dialog
+    var showCountdownInMenuBar: Bool {
+        get { defaults.bool(forKey: showCountdownInMenuBarKey) }
+        set { defaults.set(newValue, forKey: showCountdownInMenuBarKey) }
     }
     
-    func getKeyboardShortcutKeyCode() -> UInt16 {
-        return UInt16(defaults.integer(forKey: keyboardShortcutKeyCodeKey))
+    /// Keyboard shortcut key code
+    var keyboardShortcutKeyCode: UInt16 {
+        get { UInt16(defaults.integer(forKey: keyboardShortcutKeyCodeKey)) }
+        set { defaults.set(Int(newValue), forKey: keyboardShortcutKeyCodeKey) }
     }
     
-    func getKeyboardShortcutModifiers() -> UInt32 {
-        return UInt32(defaults.integer(forKey: keyboardShortcutModifiersKey))
+    /// Keyboard shortcut modifier flags
+    var keyboardShortcutModifiers: UInt32 {
+        get { UInt32(defaults.integer(forKey: keyboardShortcutModifiersKey)) }
+        set { defaults.set(Int(newValue), forKey: keyboardShortcutModifiersKey) }
     }
     
-    func getAutostart() -> Bool {
-        return defaults.bool(forKey: autostartKey)
+    /// Whether to start app automatically at login
+    var autostart: Bool {
+        get { defaults.bool(forKey: autostartKey) }
+        set { defaults.set(newValue, forKey: autostartKey) }
     }
     
-    // MARK: - Setters
+    // MARK: - Legacy Methods (for backward compatibility)
     
-    func setTypingDelay(_ delay: Double) {
-        defaults.set(delay, forKey: typingDelayKey)
-    }
+    @available(*, deprecated, message: "Use typingDelay property instead")
+    func getTypingDelay() -> Double { return typingDelay }
     
-    func setAutoClearClipboard(_ autoClear: Bool) {
-        defaults.set(autoClear, forKey: autoClearClipboardKey)
-    }
+    @available(*, deprecated, message: "Use typingDelay property instead")
+    func setTypingDelay(_ delay: Double) { typingDelay = delay }
     
-    func setShowCharacterCount(_ show: Bool) {
-        defaults.set(show, forKey: showCharacterCountKey)
-    }
+    @available(*, deprecated, message: "Use autoClearClipboard property instead")
+    func getAutoClearClipboard() -> Bool { return autoClearClipboard }
     
-    func setCharacterWarningThreshold(_ threshold: Int) {
-        defaults.set(threshold, forKey: characterWarningThresholdKey)
-    }
+    @available(*, deprecated, message: "Use autoClearClipboard property instead")
+    func setAutoClearClipboard(_ autoClear: Bool) { autoClearClipboard = autoClear }
     
-    func setShowCountdownInMenuBar(_ show: Bool) {
-        defaults.set(show, forKey: showCountdownInMenuBarKey)
-    }
+    @available(*, deprecated, message: "Use showCharacterCount property instead")
+    func getShowCharacterCount() -> Bool { return showCharacterCount }
     
+    @available(*, deprecated, message: "Use showCharacterCount property instead")
+    func setShowCharacterCount(_ show: Bool) { showCharacterCount = show }
+    
+    @available(*, deprecated, message: "Use characterWarningThreshold property instead")
+    func getCharacterWarningThreshold() -> Int { return characterWarningThreshold }
+    
+    @available(*, deprecated, message: "Use characterWarningThreshold property instead")
+    func setCharacterWarningThreshold(_ threshold: Int) { characterWarningThreshold = threshold }
+    
+    @available(*, deprecated, message: "Use showCountdownInMenuBar property instead")
+    func getShowCountdownInMenuBar() -> Bool { return showCountdownInMenuBar }
+    
+    @available(*, deprecated, message: "Use showCountdownInMenuBar property instead")
+    func setShowCountdownInMenuBar(_ show: Bool) { showCountdownInMenuBar = show }
+    
+    @available(*, deprecated, message: "Use keyboardShortcutKeyCode and keyboardShortcutModifiers properties instead")
+    func getKeyboardShortcutKeyCode() -> UInt16 { return keyboardShortcutKeyCode }
+    
+    @available(*, deprecated, message: "Use keyboardShortcutKeyCode and keyboardShortcutModifiers properties instead")
+    func getKeyboardShortcutModifiers() -> UInt32 { return keyboardShortcutModifiers }
+    
+    @available(*, deprecated, message: "Use keyboardShortcutKeyCode and keyboardShortcutModifiers properties instead")
     func setKeyboardShortcut(keyCode: UInt16, modifiers: UInt32) {
-        defaults.set(Int(keyCode), forKey: keyboardShortcutKeyCodeKey)
-        defaults.set(Int(modifiers), forKey: keyboardShortcutModifiersKey)
+        keyboardShortcutKeyCode = keyCode
+        keyboardShortcutModifiers = modifiers
     }
     
-    func setAutostart(_ autostart: Bool) {
-        defaults.set(autostart, forKey: autostartKey)
-    }
+    @available(*, deprecated, message: "Use autostart property instead")
+    func getAutostart() -> Bool { return autostart }
+    
+    @available(*, deprecated, message: "Use autostart property instead")
+    func setAutostart(_ autostart: Bool) { self.autostart = autostart }
 } 

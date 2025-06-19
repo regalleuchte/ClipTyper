@@ -26,10 +26,12 @@ A macOS status bar utility that simulates keyboard typing of clipboard contents.
 ## Installation
 
 ### Download (Recommended)
-1. Download `ClipTyper-1.0-Signed.dmg` from releases
+1. Download `ClipTyper-1.1-Signed.dmg` from releases
 2. Mount the DMG and drag ClipTyper to Applications
 3. Launch ClipTyper from Applications
 4. Grant Accessibility permissions when prompted
+
+The app includes a custom icon that will appear in your Applications folder and Dock.
 
 ### Build from Source
 ```bash
@@ -37,11 +39,14 @@ A macOS status bar utility that simulates keyboard typing of clipboard contents.
 git clone <repository-url>
 cd ClipTyper
 
-# Build signed app (requires Developer ID certificate)
+# Build signed DMG (requires Developer ID certificate)
 ./build-signed.sh
 
-# Or build unsigned version
+# Build DMG with auto-signing detection
 ./build-dmg.sh
+
+# Basic app bundle only
+./build.sh
 ```
 
 ## Usage
@@ -100,23 +105,33 @@ Access settings by left-clicking the ClipTyper menu bar icon:
 # Development build
 swift build -c release
 
-# Create app bundle
+# Create app bundle only
 ./build.sh
 
-# Create signed DMG for distribution
+# Create DMG with auto-signing detection
+./build-dmg.sh
+
+# Create signed DMG for distribution (requires Developer ID)
 ./build-signed.sh
 ```
+
+### Build Scripts
+- `./build.sh` - Creates basic app bundle with icon support
+- `./build-dmg.sh` - Creates DMG with auto-signing detection and ClipTyper.icns
+- `./build-signed.sh` - Creates fully signed DMG for public distribution
+
+### Icon Support
+The app now includes custom icon support:
+- App icon: `ClipTyper.icns` (converted from ClipTyper.iconset)
+- Status bar: Uses SF Symbols (`doc.on.clipboard.fill`) with dynamic state changes
+- All build scripts automatically include the custom icon
 
 ### Commands (see CLAUDE.md)
 - Build: `swift build -c release`
 - Create app bundle: `./build.sh`
 - Run from build: `./.build/release/ClipTyper`
+- Create DMG: `./build-dmg.sh`
 - Create signed DMG: `./build-signed.sh`
-
-### Distribution
-The project includes automated build scripts for creating distributable DMGs:
-- `build-dmg.sh` - Creates unsigned DMG for development/testing
-- `build-signed.sh` - Creates code-signed DMG for public distribution
 
 ## Troubleshooting
 
