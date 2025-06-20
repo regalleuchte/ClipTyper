@@ -20,4 +20,9 @@ let package = Package(
             ]
         )
     ]
-) 
+)
+
+// ClipTyper - Free and Open Source Software
+// Licensed under GNU General Public License v3.0
+// Copyright © 2025 Ralf Sturhan
+// See LICENSE file for full license text 

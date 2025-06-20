@@ -1,6 +1,8 @@
 # ClipTyper
 
-A macOS status bar utility that simulates keyboard typing of clipboard contents. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
+A free and open source macOS status bar utility that simulates keyboard typing of clipboard contents. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
+
+**📜 License**: GNU General Public License v3.0 | **🔓 Open Source** | **🛡️ Security Focused**
 
 ## Features
 
@@ -147,9 +149,36 @@ The app now includes custom icon support:
 
 ## License
 
-Copyright © 2025 Ralf Sturhan. All rights reserved.
+ClipTyper is free and open source software licensed under the GNU General Public License v3.0.
 
-This software is provided "as is" without warranty of any kind.
+Copyright © 2025 Ralf Sturhan
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+### Why GPLv3?
+
+ClipTyper is now open source to benefit the security engineering and systems administration community. The GPLv3 license ensures that:
+
+- ✅ **Free redistribution** - Anyone can share ClipTyper
+- ✅ **Source code access** - Full source code is always available
+- ✅ **Modification rights** - Users can adapt ClipTyper to their needs
+- ✅ **Copyleft protection** - Derivative works must also be open source
+- ✅ **Patent protection** - Protection against patent claims
+- ✅ **Commercial use** - Organizations can use ClipTyper in commercial environments
+
+### Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with proper GPLv3 headers
+4. Submit a pull request
+
+All contributions must be compatible with GPLv3 licensing.
 
 ---
 
