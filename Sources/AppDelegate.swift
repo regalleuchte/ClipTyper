@@ -43,8 +43,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupManagers()
         setupStatusItem()
         setupMenu()
-        registerShortcut()
         requestAccessibilityPermission()
+        // Note: registerShortcut() will be called after accessibility permissions are granted
+        // or immediately if permissions are already available
+        registerShortcutIfPermissionsAvailable()
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -759,16 +761,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         attemptRetry()
     }
     
+    private func registerShortcutIfPermissionsAvailable() {
+        // Check if accessibility permissions are already available without prompting
+        let accessEnabled = AXIsProcessTrusted()
+        if accessEnabled {
+            print("Accessibility permissions already available - registering shortcut immediately")
+            registerShortcut()
+        } else {
+            print("Accessibility permissions not yet available - shortcut will be registered after permissions are granted")
+        }
+    }
+    
     private func requestAccessibilityPermission() {
+        // First check if permissions are already granted
+        let alreadyTrusted = AXIsProcessTrusted()
+        if alreadyTrusted {
+            print("Accessibility permissions already granted")
+            return
+        }
+        
+        print("Requesting accessibility permissions from user...")
+        // Request permissions with system dialog
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary)
         
         if !accessEnabled {
             showAlert(title: "Accessibility Permission Required", 
-                      message: "ClipTyper needs accessibility permissions to simulate keyboard typing. Please grant permission in System Preferences > Security & Privacy > Privacy > Accessibility.")
+                      message: "ClipTyper needs accessibility permissions to simulate keyboard typing.\n\n1. System Settings should have opened automatically\n2. Go to Privacy & Security > Accessibility\n3. Enable ClipTyper in the list\n4. Restart ClipTyper if needed")
             
             // Start monitoring for accessibility permission changes
             startAccessibilityPermissionMonitoring()
+        } else {
+            print("Accessibility permissions granted immediately")
+            // Register shortcut now that we have permissions
+            registerShortcut()
         }
     }
     
