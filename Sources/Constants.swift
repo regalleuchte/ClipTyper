@@ -112,6 +112,6 @@ enum Constants {
         static let name = "ClipTyper"
         
         /// App version
-        static let version = "1.1"
+        static let version = "1.3"
     }
 }
