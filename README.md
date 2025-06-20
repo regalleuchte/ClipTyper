@@ -159,17 +159,6 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-### Why GPLv3?
-
-ClipTyper is now open source to benefit the security engineering and systems administration community. The GPLv3 license ensures that:
-
-- ✅ **Free redistribution** - Anyone can share ClipTyper
-- ✅ **Source code access** - Full source code is always available
-- ✅ **Modification rights** - Users can adapt ClipTyper to their needs
-- ✅ **Copyleft protection** - Derivative works must also be open source
-- ✅ **Patent protection** - Protection against patent claims
-- ✅ **Commercial use** - Organizations can use ClipTyper in commercial environments
-
 ### Contributing
 
 Contributions are welcome! Please:
@@ -183,5 +172,3 @@ All contributions must be compatible with GPLv3 licensing.
 ---
 
 **Target Users**: Security engineers, MSP employees, and engineers working through VPN/RDP jump hosts with restricted copy-paste functionality.
-
-**Distribution**: Mac App Store (preferred) or notarized DMG (fallback)
