@@ -773,19 +773,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func requestAccessibilityPermission() {
+        print("=== ACCESSIBILITY PERMISSION REQUEST DEBUG ===")
+        
         // First check if permissions are already granted
         let alreadyTrusted = AXIsProcessTrusted()
+        print("Initial AXIsProcessTrusted() check: \(alreadyTrusted)")
+        
         if alreadyTrusted {
             print("Accessibility permissions already granted")
             return
         }
         
         print("Requesting accessibility permissions from user...")
+        print("Bundle identifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
+        print("App name: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") ?? "unknown")")
+        
         // Request permissions with system dialog
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        print("Calling AXIsProcessTrustedWithOptions with prompt=true...")
+        
         let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        print("AXIsProcessTrustedWithOptions result: \(accessEnabled)")
+        
+        // Wait a moment and check again to see if anything changed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let checkAgain = AXIsProcessTrusted()
+            print("Post-request AXIsProcessTrusted() check: \(checkAgain)")
+        }
         
         if !accessEnabled {
+            print("Showing custom accessibility permission dialog...")
             showAlert(title: "Accessibility Permission Required", 
                       message: "ClipTyper needs accessibility permissions to simulate keyboard typing.\n\n1. System Settings should have opened automatically\n2. Go to Privacy & Security > Accessibility\n3. Enable ClipTyper in the list\n4. Restart ClipTyper if needed")
             
@@ -796,6 +813,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Register shortcut now that we have permissions
             registerShortcut()
         }
+        
+        print("=== END ACCESSIBILITY PERMISSION REQUEST DEBUG ===")
     }
     
     private func startAccessibilityPermissionMonitoring() {

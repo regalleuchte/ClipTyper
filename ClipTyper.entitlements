@@ -2,13 +2,22 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>com.apple.security.app-sandbox</key>
+    <!-- Accessibility apps typically cannot use app sandbox as it restricts system access -->
+    <!-- <key>com.apple.security.app-sandbox</key>
+    <true/> -->
+    
+    <!-- Enable hardened runtime for notarization -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <false/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+    
+    <!-- Required for accessibility and keyboard simulation -->
+    <key>com.apple.security.automation.apple-events</key>
     <true/>
-    <key>com.apple.security.accessibility</key>
-    <true/>
-    <key>com.apple.security.application-groups</key>
-    <array>
-        <string>de.sturhan.ClipTyper</string>
-    </array>
 </dict>
 </plist>
