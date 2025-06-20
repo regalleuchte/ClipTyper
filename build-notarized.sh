@@ -35,10 +35,11 @@ echo "🔨 Building ${APP_NAME} with notarization..."
 echo "🔐 Using identity: ${SIGNING_IDENTITY}"
 echo "📤 Using notary profile: ${NOTARY_PROFILE}"
 
-# Verify notarization credentials exist
-if ! security find-generic-password -s "AC_PASSWORD" -a "${NOTARY_PROFILE}" >/dev/null 2>&1; then
+# Verify notarization credentials exist by testing notarytool
+echo "🔍 Verifying notarization credentials..."
+if ! xcrun notarytool history --keychain-profile "${NOTARY_PROFILE}" >/dev/null 2>&1; then
     echo ""
-    echo "❌ Notarization credentials not found!"
+    echo "❌ Notarization credentials not found or invalid!"
     echo ""
     echo "🔧 Please set up notarization credentials first:"
     echo "   1. Get app-specific password from appleid.apple.com"
@@ -50,6 +51,7 @@ if ! security find-generic-password -s "AC_PASSWORD" -a "${NOTARY_PROFILE}" >/de
     echo ""
     exit 1
 fi
+echo "✅ Notarization credentials verified!"
 
 # Clean previous builds
 echo "🧹 Cleaning previous builds..."
@@ -66,36 +68,63 @@ fi
 
 echo "✅ Swift build successful!"
 
-# Create app bundle structure
+# Create app bundle structure in a clean temp directory first
 echo "📦 Creating app bundle..."
-mkdir -p "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS"
-mkdir -p "${BUILD_DIR}/${APP_NAME}.app/Contents/Resources"
+TEMP_APP_DIR="/tmp/${APP_NAME}_build_$$"
+mkdir -p "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/MacOS"
+mkdir -p "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Resources"
 
-# Copy executable
-cp "./.build/release/${APP_NAME}" "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS/"
+# Copy executable using ditto to avoid extended attributes
+ditto "./.build/release/${APP_NAME}" "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
 
 # Copy and process Info.plist to replace placeholder values
-cp "./Info.plist" "${BUILD_DIR}/${APP_NAME}.app/Contents/"
-sed -i '' 's/$(EXECUTABLE_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
-sed -i '' 's/$(PRODUCT_NAME)/ClipTyper/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
-sed -i '' 's/$(MACOSX_DEPLOYMENT_TARGET)/12.0/g' "${BUILD_DIR}/${APP_NAME}.app/Contents/Info.plist"
+ditto "./Info.plist" "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Info.plist"
+sed -i '' 's/$(EXECUTABLE_NAME)/ClipTyper/g' "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Info.plist"
+sed -i '' 's/$(PRODUCT_NAME)/ClipTyper/g' "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Info.plist"
+sed -i '' 's/$(MACOSX_DEPLOYMENT_TARGET)/12.0/g' "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Info.plist"
 
-# Copy icon file
+# Copy icon file using ditto
 if [ -f "./Sources/Resources/ClipTyper.icns" ]; then
-    cp "./Sources/Resources/ClipTyper.icns" "${BUILD_DIR}/${APP_NAME}.app/Contents/Resources/"
+    ditto "./Sources/Resources/ClipTyper.icns" "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/Resources/ClipTyper.icns"
     echo "✅ Icon copied successfully!"
 else
     echo "⚠️  Warning: ClipTyper.icns not found"
 fi
 
 # Make executable
-chmod +x "${BUILD_DIR}/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+chmod +x "${TEMP_APP_DIR}/${APP_NAME}.app/Contents/MacOS/${APP_NAME}"
+
+# Now move the clean app bundle to the build directory
+mkdir -p "${BUILD_DIR}"
+mv "${TEMP_APP_DIR}/${APP_NAME}.app" "${BUILD_DIR}/"
+rmdir "${TEMP_APP_DIR}" 2>/dev/null || true
+
+echo "✅ App bundle created!"
 
 # Clean extended attributes that can cause signing issues
 echo "🧹 Cleaning extended attributes..."
-xattr -cr "${BUILD_DIR}/${APP_NAME}.app"
+# Remove any signature we added previously (optional, keeps output tidy)
+codesign --remove-signature "${BUILD_DIR}/${APP_NAME}.app" 2>/dev/null || true
 
-echo "✅ App bundle created!"
+# Delete stray files such as .DS_Store before signing
+echo "🧹 Removing stray files..."
+find "${BUILD_DIR}/${APP_NAME}.app" -name "._*" -delete 2>/dev/null || true
+find "${BUILD_DIR}/${APP_NAME}.app" -name ".DS_Store" -delete 2>/dev/null || true
+find "${BUILD_DIR}/${APP_NAME}.app" -name "*.swp" -delete 2>/dev/null || true
+find "${BUILD_DIR}/${APP_NAME}.app" -name "*.tmp" -delete 2>/dev/null || true
+
+# Build-phase strip: Remove all extended attributes using xargs for efficiency
+echo "🧹 Build-phase strip: removing all extended attributes..."
+find "${BUILD_DIR}/${APP_NAME}.app" -print0 | xargs -0 xattr -c 2>/dev/null || true
+
+# Final verification - list any remaining attributes
+echo "🔍 Checking for remaining extended attributes..."
+if xattr -r "${BUILD_DIR}/${APP_NAME}.app" 2>/dev/null | grep -q .; then
+    echo "⚠️  Warning: Some extended attributes remain:"
+    xattr -r "${BUILD_DIR}/${APP_NAME}.app" 2>/dev/null || true
+else
+    echo "✅ All extended attributes cleaned!"
+fi
 
 # Code sign the app with hardened runtime (required for notarization)
 echo "🔐 Code signing app with hardened runtime..."
@@ -114,6 +143,10 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✅ App signed successfully with hardened runtime!"
+
+# Clean attributes that might have been added during signing
+echo "🧹 Post-signing attribute cleanup..."
+find "${BUILD_DIR}/${APP_NAME}.app" -print0 | xargs -0 xattr -c 2>/dev/null || true
 
 # Verify signature
 echo "🔍 Verifying code signature..."
