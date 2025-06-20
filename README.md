@@ -28,7 +28,7 @@ A free and open source macOS status bar utility that simulates keyboard typing o
 ## Installation
 
 ### Download (Recommended)
-1. Download `ClipTyper-1.1-Signed.dmg` from releases
+1. Download `ClipTyper-<version>.dmg` from releases
 2. Mount the DMG and drag ClipTyper to Applications
 3. Launch ClipTyper from Applications
 4. Grant Accessibility permissions when prompted
