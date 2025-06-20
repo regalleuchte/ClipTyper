@@ -103,13 +103,21 @@ class PreferencesManager {
     
     /// Keyboard shortcut key code
     var keyboardShortcutKeyCode: UInt16 {
-        get { UInt16(defaults.integer(forKey: keyboardShortcutKeyCodeKey)) }
+        get { 
+            let value = defaults.integer(forKey: keyboardShortcutKeyCodeKey)
+            // If value is 0, it might mean the key doesn't exist - use default
+            return value == 0 ? defaultKeyboardShortcutKeyCode : UInt16(value)
+        }
         set { defaults.set(Int(newValue), forKey: keyboardShortcutKeyCodeKey) }
     }
     
     /// Keyboard shortcut modifier flags
     var keyboardShortcutModifiers: UInt32 {
-        get { UInt32(defaults.integer(forKey: keyboardShortcutModifiersKey)) }
+        get { 
+            let value = defaults.integer(forKey: keyboardShortcutModifiersKey)
+            // If value is 0, it might mean the key doesn't exist - use default
+            return value == 0 ? defaultKeyboardShortcutModifiers : UInt32(value)
+        }
         set { defaults.set(Int(newValue), forKey: keyboardShortcutModifiersKey) }
     }
     

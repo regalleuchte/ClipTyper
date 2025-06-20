@@ -74,8 +74,11 @@ class GlobalShortcutManager {
         // Check if we have accessibility permissions
         let accessEnabled = AXIsProcessTrusted()
         if !accessEnabled {
-            print("Accessibility permissions not granted - shortcut registration may fail")
+            print("GlobalShortcutManager: Accessibility permissions not granted - shortcut registration will fail")
+            return false
         }
+        
+        print("GlobalShortcutManager: Accessibility permissions verified - proceeding with registration")
         
         // Create event tap to listen for keydown events
         let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
@@ -94,7 +97,7 @@ class GlobalShortcutManager {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("Failed to create event tap - accessibility permissions may be required")
+            print("GlobalShortcutManager: Failed to create event tap - CGEvent.tapCreate returned nil")
             return false
         }
         
@@ -110,7 +113,7 @@ class GlobalShortcutManager {
         // Store the eventTap to be able to unregister later
         eventHandler = eventTap
         
-        print("Successfully registered global shortcut: \(getCurrentShortcutString())")
+        print("GlobalShortcutManager: Successfully registered global shortcut: \(getCurrentShortcutString())")
         return true
     }
     

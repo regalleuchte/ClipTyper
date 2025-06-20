@@ -694,6 +694,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let keyCode = preferencesManager.getKeyboardShortcutKeyCode()
         let modifiers = preferencesManager.getKeyboardShortcutModifiers()
         
+        print("Attempting to register shortcut: keyCode=\(keyCode), modifiers=\(modifiers)")
+        
         let success = shortcutManager.registerShortcut(callback: { [weak self] in
             // When shortcut is pressed, activate typing process
             DispatchQueue.main.async {
@@ -701,17 +703,60 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }, keyCode: keyCode, modifiers: modifiers)
         
-        if !success {
-            // Retry after a short delay - accessibility permissions might be granted after app launch
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                print("Retrying shortcut registration...")
-                _ = self?.shortcutManager.registerShortcut(callback: { [weak self] in
+        if success {
+            print("Shortcut registration successful!")
+        } else {
+            print("Shortcut registration failed - will retry with enhanced recovery")
+            startShortcutRegistrationRetryLoop()
+        }
+    }
+    
+    /// Enhanced retry loop with multiple attempts and longer monitoring period
+    private func startShortcutRegistrationRetryLoop() {
+        var retryCount = 0
+        let maxRetries = 10
+        let initialDelay = 2.0
+        
+        func attemptRetry() {
+            retryCount += 1
+            let delay = initialDelay * Double(retryCount) // Progressive delay: 2s, 4s, 6s, etc.
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, retryCount <= maxRetries else {
+                    print("Max shortcut registration retries reached (\(maxRetries))")
+                    return
+                }
+                
+                print("Shortcut registration retry attempt \(retryCount)/\(maxRetries)...")
+                
+                // Check if accessibility permissions are available
+                let accessEnabled = AXIsProcessTrusted()
+                if !accessEnabled {
+                    print("Accessibility permissions still not available, retrying...")
+                    attemptRetry()
+                    return
+                }
+                
+                // Load current settings (in case they changed)
+                let keyCode = self.preferencesManager.getKeyboardShortcutKeyCode()
+                let modifiers = self.preferencesManager.getKeyboardShortcutModifiers()
+                
+                let success = self.shortcutManager.registerShortcut(callback: { [weak self] in
                     DispatchQueue.main.async {
                         self?.startTypingProcess()
                     }
                 }, keyCode: keyCode, modifiers: modifiers)
+                
+                if success {
+                    print("Shortcut registration successful on retry \(retryCount)!")
+                } else {
+                    print("Retry \(retryCount) failed, will attempt again...")
+                    attemptRetry()
+                }
             }
         }
+        
+        attemptRetry()
     }
     
     private func requestAccessibilityPermission() {
@@ -728,6 +773,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func startAccessibilityPermissionMonitoring() {
+        print("Starting accessibility permission monitoring...")
+        
         // Check periodically if accessibility permissions have been granted
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             let accessEnabled = AXIsProcessTrusted()
