@@ -62,6 +62,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         clipboardManager.onClipboardChange = { [weak self] count in
             self?.updateCharacterCount(count)
         }
+        
+        // Start clipboard monitoring
+        clipboardManager.startMonitoring()
     }
     
     private func setupStatusItem() {
@@ -345,9 +348,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         contentView.addSubview(tipLabel)
         
-        // Modern button layout with proper spacing
-        let buttonWidth: CGFloat = 90
-        let buttonHeight: CGFloat = 30
+        // Modern button layout with proper spacing for large control size
+        let buttonWidth: CGFloat = 100
+        let buttonHeight: CGFloat = 32
         let totalButtonWidth = (buttonWidth * 2) + buttonSpacing
         let buttonStartX = (panelWidth - totalButtonWidth) / 2
         
@@ -1214,13 +1217,13 @@ class ModernPanel: NSPanel {
     }
 }
 
-// Modern button factory
+// Modern button factory with improved styling
 class ModernButton {
     static func createPrimaryButton(title: String, frame: NSRect) -> NSButton {
         let button = NSButton(frame: frame)
         button.title = title
+        button.controlSize = .large
         button.bezelStyle = .rounded
-        button.controlSize = .regular
         
         // Enhanced typography with proper system fonts
         if #available(macOS 11.0, *) {
@@ -1240,6 +1243,7 @@ class ModernButton {
         // Enhanced accessibility
         if #available(macOS 10.9, *) {
             button.setAccessibilityRole(.button)
+            button.setAccessibilityLabel(title)
         }
         
         return button
@@ -1248,8 +1252,8 @@ class ModernButton {
     static func createSecondaryButton(title: String, frame: NSRect) -> NSButton {
         let button = NSButton(frame: frame)
         button.title = title
+        button.controlSize = .large
         button.bezelStyle = .rounded
-        button.controlSize = .regular
         
         // Enhanced typography
         if #available(macOS 11.0, *) {
@@ -1259,7 +1263,11 @@ class ModernButton {
         }
         
         // Modern secondary button styling with semantic colors
-        if #available(macOS 11.0, *) {
+        if #available(macOS 14.0, *) {
+            // Use quaternary fill for modern secondary button look
+            button.bezelColor = NSColor.quaternarySystemFill
+            button.contentTintColor = NSColor.labelColor
+        } else if #available(macOS 11.0, *) {
             button.bezelColor = NSColor.controlColor
             button.contentTintColor = NSColor.controlTextColor
         } else {
@@ -1269,6 +1277,7 @@ class ModernButton {
         // Enhanced accessibility
         if #available(macOS 10.9, *) {
             button.setAccessibilityRole(.button)
+            button.setAccessibilityLabel(title)
         }
         
         return button
