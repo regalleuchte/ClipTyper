@@ -60,6 +60,12 @@ enum Constants {
     /// Default keyboard shortcut modifiers (Option + Command)
     static let defaultModifiers: UInt32 = UInt32(optionKey) | UInt32(cmdKey)
     
+    /// Default OCR shortcut key code (R key)
+    static let defaultOCRKeyCode: UInt16 = 15
+    
+    /// Default OCR shortcut modifiers (Option + Command)
+    static let defaultOCRModifiers: UInt32 = UInt32(optionKey) | UInt32(cmdKey)
+    
     // MARK: - Preference Keys
     
     enum PreferenceKeys {
@@ -71,6 +77,12 @@ enum Constants {
         static let keyboardShortcutKeyCode = "keyboardShortcutKeyCode"
         static let keyboardShortcutModifiers = "keyboardShortcutModifiers"
         static let autostart = "autostart"
+        
+        // OCR Feature Keys
+        static let ocrEnabled = "ocrEnabled"
+        static let ocrShowPreview = "ocrShowPreview"
+        static let ocrShortcutKeyCode = "ocrShortcutKeyCode"
+        static let ocrShortcutModifiers = "ocrShortcutModifiers"
     }
     
     // MARK: - SF Symbols
@@ -90,6 +102,21 @@ enum Constants {
         
         /// Checkmark icon
         static let checkmark = "checkmark"
+        
+        // Menu Icons
+        static let typeClipboard = "square.and.arrow.up"
+        static let characterWarning = "square.and.arrow.up.trianglebadge.exclamationmark"
+        static let autoClear = "clear"
+        static let countdownDisplay = "arrow.counterclockwise.square"
+        static let showNumbers = "numbers"
+        static let command = "command"
+        static let power = "power"
+        static let info = "info.square"
+        static let quit = "xmark.square"
+        
+        // OCR Icons
+        static let viewfinder = "viewfinder"
+        static let magnifyingGlass = "magnifyingglass"
     }
     
     // MARK: - System URLs
@@ -112,6 +139,6 @@ enum Constants {
         static let name = "ClipTyper"
         
         /// App version
-        static let version = "1.3"
+        static let version = "2.0"
     }
 }

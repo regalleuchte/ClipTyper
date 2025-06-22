@@ -21,7 +21,7 @@ PROJECT_DIR="$(dirname "$0")"
 cd "$PROJECT_DIR"
 
 APP_NAME="ClipTyper"
-VERSION="1.3"
+VERSION="2.0"
 DMG_NAME="${APP_NAME}-${VERSION}-Notarized"
 BUILD_DIR="./build"
 DMG_DIR="./dmg-build"

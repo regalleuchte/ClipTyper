@@ -32,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyboardSimulator: KeyboardSimulator!
     private var shortcutManager: GlobalShortcutManager!
     private var loginItemManager: LoginItemManager!
+    private var screenTextCaptureManager: ScreenTextCaptureManager!
     private let defaults = UserDefaults.standard
     
     // Flag to track if a warning dialog is currently shown
@@ -43,10 +44,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupManagers()
         setupStatusItem()
         setupMenu()
+        registerShortcut()
         requestAccessibilityPermission()
-        // Note: registerShortcut() will be called after accessibility permissions are granted
-        // or immediately if permissions are already available
-        registerShortcutIfPermissionsAvailable()
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -57,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Clean up managers
         shortcutManager?.unregisterShortcut()
+        shortcutManager?.unregisterOCRShortcut()
     }
     
     deinit {
@@ -72,6 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         keyboardSimulator = KeyboardSimulator()
         shortcutManager = GlobalShortcutManager()
         loginItemManager = LoginItemManager()
+        screenTextCaptureManager = ScreenTextCaptureManager(preferencesManager: preferencesManager)
         
         // Setup clipboard monitoring to update character count
         clipboardManager.onClipboardChange = { [weak self] count in
@@ -163,7 +164,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // === PRIMARY ACTIONS ===
         mainMenuItem = NSMenuItem(title: "Type Clipboard (\(shortcutManager.getCurrentShortcutString()))", action: #selector(startTypingProcess), keyEquivalent: "")
+        mainMenuItem.image = NSImage(systemSymbolName: Constants.SFSymbols.typeClipboard, accessibilityDescription: nil)
         statusMenu.addItem(mainMenuItem)
+        
+        // OCR action (only if enabled)
+        if preferencesManager.ocrEnabled {
+            let ocrItem = NSMenuItem(title: "Capture Text from Screen (\(getOCRShortcutString()))", action: #selector(startScreenTextCapture), keyEquivalent: "")
+            ocrItem.image = NSImage(systemSymbolName: Constants.SFSymbols.viewfinder, accessibilityDescription: nil)
+            statusMenu.addItem(ocrItem)
+        }
+        
+        statusMenu.addItem(NSMenuItem.separator())
         
         // Clipboard status (informational)
         let clipboardLength = clipboardManager.getClipboardCharacterCount()
@@ -182,18 +193,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Character warning threshold
         let thresholdItem = NSMenuItem(title: "Character Warning Threshold: \(preferencesManager.getCharacterWarningThreshold())", action: #selector(changeWarningThreshold), keyEquivalent: "")
+        thresholdItem.image = NSImage(systemSymbolName: Constants.SFSymbols.characterWarning, accessibilityDescription: nil)
         statusMenu.addItem(thresholdItem)
         
         // Auto-clear clipboard option
         let autoClearItem = NSMenuItem(title: "Auto-clear Clipboard After Typing", action: #selector(toggleAutoClear), keyEquivalent: "")
         autoClearItem.state = preferencesManager.getAutoClearClipboard() ? .on : .off
+        autoClearItem.image = NSImage(systemSymbolName: Constants.SFSymbols.autoClear, accessibilityDescription: nil)
         statusMenu.addItem(autoClearItem)
+        
+        statusMenu.addItem(NSMenuItem.separator())
+        
+        // === SCREEN TEXT CAPTURE ===
+        // Enable OCR feature (always visible for discovery)
+        let enableOCRItem = NSMenuItem(title: "Enable Screen Text Capture", action: #selector(toggleOCREnabled), keyEquivalent: "")
+        enableOCRItem.state = preferencesManager.ocrEnabled ? .on : .off
+        enableOCRItem.image = NSImage(systemSymbolName: Constants.SFSymbols.viewfinder, accessibilityDescription: nil)
+        statusMenu.addItem(enableOCRItem)
+        
+        // OCR preview option (only show when OCR enabled)
+        if preferencesManager.ocrEnabled {
+            let ocrPreviewItem = NSMenuItem(title: "Show OCR Preview Dialog", action: #selector(toggleOCRPreview), keyEquivalent: "")
+            ocrPreviewItem.state = preferencesManager.ocrShowPreview ? .on : .off
+            ocrPreviewItem.image = NSImage(systemSymbolName: Constants.SFSymbols.magnifyingGlass, accessibilityDescription: nil)
+            statusMenu.addItem(ocrPreviewItem)
+        }
         
         statusMenu.addItem(NSMenuItem.separator())
         
         // === DISPLAY SETTINGS ===
         // Countdown display options (as submenu)
         let countdownMenuItem = NSMenuItem(title: "Countdown Display", action: nil, keyEquivalent: "")
+        countdownMenuItem.image = NSImage(systemSymbolName: Constants.SFSymbols.countdownDisplay, accessibilityDescription: nil)
         let countdownSubmenu = NSMenu()
         
         let dialogItem = NSMenuItem(title: "Show in Dialog", action: #selector(selectDialogCountdown), keyEquivalent: "")
@@ -210,24 +241,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Show character count option
         let showCountItem = NSMenuItem(title: "Show Character Count in Menu Bar", action: #selector(toggleShowCharacterCount), keyEquivalent: "")
         showCountItem.state = preferencesManager.getShowCharacterCount() ? .on : .off
+        showCountItem.image = NSImage(systemSymbolName: Constants.SFSymbols.showNumbers, accessibilityDescription: nil)
         statusMenu.addItem(showCountItem)
         
         statusMenu.addItem(NSMenuItem.separator())
         
         // === SYSTEM SETTINGS ===
-        // Change keyboard shortcut
-        statusMenu.addItem(NSMenuItem(title: "Change Keyboard Shortcut…", action: #selector(changeKeyboardShortcut), keyEquivalent: ""))
+        // Change typing shortcut
+        let shortcutItem = NSMenuItem(title: "Change Typing Shortcut…", action: #selector(changeKeyboardShortcut), keyEquivalent: "")
+        shortcutItem.image = NSImage(systemSymbolName: Constants.SFSymbols.command, accessibilityDescription: nil)
+        statusMenu.addItem(shortcutItem)
+        
+        // Change OCR shortcut (dimmed when OCR disabled)
+        let ocrShortcutItem = NSMenuItem(title: "Change OCR Shortcut…", action: #selector(changeOCRShortcut), keyEquivalent: "")
+        ocrShortcutItem.image = NSImage(systemSymbolName: Constants.SFSymbols.command, accessibilityDescription: nil)
+        ocrShortcutItem.isEnabled = preferencesManager.ocrEnabled
+        statusMenu.addItem(ocrShortcutItem)
         
         // Autostart option
         let autostartItem = NSMenuItem(title: "Start ClipTyper at Login", action: #selector(toggleAutostart), keyEquivalent: "")
         autostartItem.state = preferencesManager.getAutostart() ? .on : .off
+        autostartItem.image = NSImage(systemSymbolName: Constants.SFSymbols.power, accessibilityDescription: nil)
         statusMenu.addItem(autostartItem)
         
         statusMenu.addItem(NSMenuItem.separator())
         
         // === ABOUT & QUIT ===
-        statusMenu.addItem(NSMenuItem(title: "About ClipTyper", action: #selector(showAbout), keyEquivalent: ""))
-        statusMenu.addItem(NSMenuItem(title: "Quit ClipTyper", action: #selector(quitApp), keyEquivalent: "q"))
+        let aboutItem = NSMenuItem(title: "About ClipTyper", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.image = NSImage(systemSymbolName: Constants.SFSymbols.info, accessibilityDescription: nil)
+        statusMenu.addItem(aboutItem)
+        
+        let quitItem = NSMenuItem(title: "Quit ClipTyper", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.image = NSImage(systemSymbolName: Constants.SFSymbols.quit, accessibilityDescription: nil)
+        statusMenu.addItem(quitItem)
     }
     
     private func createDelaySliderView() -> NSView {
@@ -707,6 +753,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         if success {
             print("Shortcut registration successful!")
+            
+            // Also register OCR shortcut if enabled
+            if preferencesManager.ocrEnabled {
+                registerOCRShortcut()
+                print("OCR shortcut also registered at startup")
+            }
         } else {
             print("Shortcut registration failed - will retry with enhanced recovery")
             startShortcutRegistrationRetryLoop()
@@ -751,6 +803,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 
                 if success {
                     print("Shortcut registration successful on retry \(retryCount)!")
+                    
+                    // Also register OCR shortcut if enabled
+                    if self.preferencesManager.ocrEnabled {
+                        self.registerOCRShortcut()
+                    }
                 } else {
                     print("Retry \(retryCount) failed, will attempt again...")
                     attemptRetry()
@@ -765,10 +822,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Check if accessibility permissions are already available without prompting
         let accessEnabled = AXIsProcessTrusted()
         if accessEnabled {
-            print("Accessibility permissions already available - registering shortcut immediately")
+            print("Accessibility permissions already available - registering shortcuts immediately")
             registerShortcut()
+            
+            // Also register OCR shortcut if enabled
+            if preferencesManager.ocrEnabled {
+                registerOCRShortcut()
+            }
         } else {
-            print("Accessibility permissions not yet available - shortcut will be registered after permissions are granted")
+            print("Accessibility permissions not yet available - shortcuts will be registered after permissions are granted")
         }
     }
     
@@ -810,8 +872,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             startAccessibilityPermissionMonitoring()
         } else {
             print("Accessibility permissions granted immediately")
-            // Register shortcut now that we have permissions
+            // Register shortcuts now that we have permissions
             registerShortcut()
+            
+            // Also register OCR shortcut if enabled
+            if preferencesManager.ocrEnabled {
+                registerOCRShortcut()
+            }
         }
         
         print("=== END ACCESSIBILITY PERMISSION REQUEST DEBUG ===")
@@ -825,12 +892,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let accessEnabled = AXIsProcessTrusted()
             
             if accessEnabled {
-                print("Accessibility permissions granted - re-registering shortcut")
+                print("Accessibility permissions granted - re-registering shortcuts")
                 timer.invalidate()
                 
-                // Re-register the shortcut now that we have permissions
+                // Re-register the shortcuts now that we have permissions
                 DispatchQueue.main.async {
                     self?.registerShortcut()
+                    
+                    // Also register OCR shortcut if enabled
+                    if self?.preferencesManager.ocrEnabled == true {
+                        self?.registerOCRShortcut()
+                    }
                 }
             }
         }
@@ -1116,6 +1188,264 @@ ClipTyper requires Accessibility permissions to simulate keyboard input.
     
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func getOCRShortcutString() -> String {
+        return formatShortcut(keyCode: preferencesManager.ocrShortcutKeyCode, modifiers: preferencesManager.ocrShortcutModifiers)
+    }
+    
+    private func formatShortcut(keyCode: UInt16, modifiers: UInt32) -> String {
+        var result = ""
+        
+        // Add modifiers in the standard macOS order
+        if modifiers & UInt32(controlKey) != 0 { result += "⌃" }
+        if modifiers & UInt32(optionKey) != 0 { result += "⌥" }
+        if modifiers & UInt32(shiftKey) != 0 { result += "⇧" }
+        if modifiers & UInt32(cmdKey) != 0 { result += "⌘" }
+        
+        // Add the key character
+        result += keyCodeToChar(keyCode)
+        
+        return result
+    }
+    
+    private func keyCodeToChar(_ keyCode: UInt16) -> String {
+        // Map to base character (unshifted version)
+        let keyCodes: [UInt16: String] = [
+            0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",
+            8: "C", 9: "V", 11: "B", 12: "Q", 13: "W", 14: "E", 15: "R",
+            16: "Y", 17: "T", 18: "1", 19: "2", 20: "3", 21: "4", 22: "6", 23: "5",
+            24: "=", 25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 30: "]", 31: "O",
+            32: "U", 33: "[", 34: "I", 35: "P", 37: "L", 38: "J", 39: "'",
+            40: "K", 41: ";", 42: "\\", 43: ",", 44: "/", 45: "N", 46: "M", 47: ".",
+            48: "Tab", 49: "Space", 50: "`", 51: "Delete", 53: "Escape",
+            // Function keys
+            122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+            98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12"
+        ]
+        
+        return keyCodes[keyCode] ?? "Key"
+    }
+    
+    // MARK: - OCR Menu Actions
+    
+    @objc private func startScreenTextCapture() {
+        print("AppDelegate: Starting screen text capture")
+        
+        // RUNTIME PERMISSION CHECK: Verify OCR feature is enabled
+        guard preferencesManager.ocrEnabled else {
+            showAlert(title: "Feature Disabled", 
+                     message: "Screen Text Capture is not enabled. Please enable it in the menu to use this feature.")
+            return
+        }
+        
+        // RUNTIME PERMISSION CHECK: Verify screen recording permissions before OCR
+        // But don't block - let ScreenTextCaptureManager handle the permission flow
+        if !OCRManager.hasScreenRecordingPermission() {
+            print("AppDelegate: Screen recording permission not available - will be handled by ScreenTextCaptureManager")
+        }
+        
+        // Simple approach without nested completion handlers
+        DispatchQueue.main.async { [weak self] in
+            self?.screenTextCaptureManager.startCapture { result in
+                print("AppDelegate: Screen text capture completed with result: \(result)")
+                
+                switch result {
+                case .success(let text):
+                    print("AppDelegate: OCR successful, text: '\(text)'")
+                    // Text is already in clipboard from ScreenTextCaptureManager
+                    
+                case .failure(let error):
+                    print("AppDelegate: OCR failed: \(error)")
+                    DispatchQueue.main.async {
+                        self?.showOCRError(error)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func showOCRError(_ error: ScreenTextCaptureManager.CaptureError) {
+        print("AppDelegate: Showing OCR error: \(error)")
+        
+        switch error {
+        case .featureDisabled:
+            showAlert(title: "Feature Disabled", message: "Screen Text Capture is not enabled. Please enable it in the menu to use this feature.")
+            
+        case .permissionDenied:
+            showAlert(title: "Permission Required", 
+                     message: "ClipTyper needs Screen Recording permission to capture text from the screen.\n\n1. Go to System Settings > Privacy & Security > Screen Recording\n2. Enable ClipTyper in the list\n3. Try again")
+            
+        case .selectionCancelled:
+            // User cancelled - this is normal, don't show any error
+            print("AppDelegate: User cancelled selection - no error dialog needed")
+            return
+            
+        case .ocrFailed(let ocrError):
+            showAlert(title: "OCR Failed", message: ocrError.localizedDescription)
+            
+        case .unknownError(let message):
+            showAlert(title: "Error", message: message)
+        }
+    }
+    
+    @objc private func toggleOCREnabled(_ sender: NSMenuItem) {
+        let newValue = !preferencesManager.ocrEnabled
+        
+        if newValue {
+            // When enabling OCR, check permissions proactively
+            print("AppDelegate: Enabling OCR - checking permissions...")
+            
+            // Check if Screen Recording permission is available
+            if !OCRManager.hasScreenRecordingPermission() {
+                print("AppDelegate: Screen Recording permission not available when enabling OCR")
+                
+                // Show user-friendly dialog
+                let alert = NSAlert()
+                alert.messageText = "Screen Recording Permission Required"
+                alert.informativeText = "To use Screen Text Capture, ClipTyper needs Screen Recording permission.\n\nWould you like to open System Settings to grant this permission?"
+                alert.alertStyle = .informational
+                alert.addButton(withTitle: "Open System Settings")
+                alert.addButton(withTitle: "Enable Without Permission")
+                alert.addButton(withTitle: "Cancel")
+                
+                let response = alert.runModal()
+                
+                switch response {
+                case .alertFirstButtonReturn: // Open System Settings
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    // Don't enable OCR yet - user needs to restart after granting permission
+                    showAlert(title: "Restart Required", 
+                             message: "After granting Screen Recording permission, please restart ClipTyper to use Screen Text Capture.")
+                    return
+                    
+                case .alertSecondButtonReturn: // Enable Without Permission
+                    // Continue with enabling, user understands it won't work until permission is granted
+                    break
+                    
+                default: // Cancel
+                    return
+                }
+            }
+            
+            // Enable OCR
+            preferencesManager.ocrEnabled = true
+            
+            // Enable preview dialog by default when OCR is first enabled
+            if !preferencesManager.ocrShowPreview {
+                preferencesManager.ocrShowPreview = true
+                print("AppDelegate: Enabled OCR preview dialog by default")
+            }
+            
+            registerOCRShortcut()
+            
+            let message = OCRManager.hasScreenRecordingPermission() ?
+                "Screen Text Capture has been enabled. You can now use \(getOCRShortcutString()) to capture text from the screen." :
+                "Screen Text Capture has been enabled, but Screen Recording permission is required for it to work. Please grant permission in System Settings."
+            
+            showAlert(title: "Screen Text Capture", message: message)
+            
+        } else {
+            // When disabling OCR, unregister shortcut
+            preferencesManager.ocrEnabled = false
+            shortcutManager.unregisterOCRShortcut()
+            
+            showAlert(title: "Screen Text Capture", message: "Screen Text Capture has been disabled.")
+        }
+        
+        // Rebuild menu to show/hide OCR-specific items
+        setupMenu()
+    }
+    
+    @objc private func toggleOCRPreview(_ sender: NSMenuItem) {
+        let newValue = !preferencesManager.ocrShowPreview
+        preferencesManager.ocrShowPreview = newValue
+        sender.state = newValue ? .on : .off
+    }
+    
+    @objc private func changeOCRShortcut() {
+        // Similar to changeKeyboardShortcut but for OCR
+        let alert = NSAlert()
+        alert.messageText = "Change OCR Shortcut"
+        alert.informativeText = "Click in the field below and press the keys you want to use for the OCR shortcut.\n\nCurrent shortcut: \(getOCRShortcutString())"
+        alert.alertStyle = .informational
+        
+        // Add text field for shortcut input
+        let inputField = ShortcutTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        inputField.placeholderString = "Click here, then press keys..."
+        alert.accessoryView = inputField
+        
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: "Reset to Default")
+        
+        // Position below status item
+        if let statusButton = statusItem.button,
+           let statusWindow = statusButton.window {
+            let buttonFrame = statusButton.convert(statusButton.bounds, to: nil)
+            let screenFrame = statusWindow.convertToScreen(buttonFrame)
+            
+            DispatchQueue.main.async {
+                let alertWindow = alert.window
+                let alertFrame = alertWindow.frame
+                let newOrigin = NSPoint(
+                    x: screenFrame.midX - alertFrame.width / 2,
+                    y: screenFrame.minY - alertFrame.height - 5
+                )
+                alertWindow.setFrameOrigin(newOrigin)
+            }
+        }
+        
+        // Make the input field the first responder after the alert appears
+        DispatchQueue.main.async {
+            alert.window.makeFirstResponder(inputField)
+        }
+        
+        let response = alert.runModal()
+        
+        switch response {
+        case .alertFirstButtonReturn: // OK
+            if let newShortcut = inputField.recordedShortcut {
+                preferencesManager.ocrShortcutKeyCode = newShortcut.keyCode
+                preferencesManager.ocrShortcutModifiers = newShortcut.modifiers
+                
+                // Re-register OCR shortcut if enabled
+                if preferencesManager.ocrEnabled {
+                    registerOCRShortcut()
+                }
+                
+                setupMenu() // Refresh menu to show new shortcut
+                showConfirmation("OCR shortcut changed to: \(getOCRShortcutString())")
+            }
+        case .alertThirdButtonReturn: // Reset to Default
+            preferencesManager.ocrShortcutKeyCode = Constants.defaultOCRKeyCode
+            preferencesManager.ocrShortcutModifiers = Constants.defaultOCRModifiers
+            
+            // Re-register OCR shortcut if enabled
+            if preferencesManager.ocrEnabled {
+                registerOCRShortcut()
+            }
+            
+            setupMenu() // Refresh menu to show new shortcut
+            showConfirmation("OCR shortcut reset to default: ⌥⌘R")
+        default: // Cancel
+            break
+        }
+    }
+    
+    private func registerOCRShortcut() {
+        let keyCode = preferencesManager.ocrShortcutKeyCode
+        let modifiers = preferencesManager.ocrShortcutModifiers
+        
+        _ = shortcutManager.registerOCRShortcut(callback: { [weak self] in
+            DispatchQueue.main.async {
+                self?.startScreenTextCapture()
+            }
+        }, keyCode: keyCode, modifiers: modifiers)
     }
 }
 

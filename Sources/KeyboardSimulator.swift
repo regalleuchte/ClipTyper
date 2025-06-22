@@ -26,6 +26,11 @@ import Cocoa
 /// keyboard layouts and languages. It uses CGEvent API to simulate typing
 /// at the system level, bypassing keyboard layout dependencies.
 /// 
+/// ## Special Handling
+/// - Line breaks (`\n`) are converted to actual Enter key presses
+/// - Unicode characters including emoji are supported
+/// - Preserves text formatting and layout
+/// 
 /// ## Requirements
 /// - Accessibility permissions must be granted
 /// - macOS 12.0+
@@ -33,7 +38,8 @@ import Cocoa
 /// ## Usage
 /// ```swift
 /// let simulator = KeyboardSimulator()
-/// simulator.typeText("Hello, World! 🌍")
+/// simulator.typeText("Line 1\nLine 2") // Types with actual line break
+/// simulator.typeText("Hello, World! 🌍") // Supports Unicode
 /// ```
 class KeyboardSimulator {
     
@@ -41,9 +47,10 @@ class KeyboardSimulator {
     /// 
     /// This method converts text to Unicode scalars and uses CGEvent to simulate
     /// typing character by character. It handles complex Unicode including emoji
-    /// and multi-byte characters correctly.
+    /// and multi-byte characters correctly. Line breaks (`\n`) are automatically
+    /// converted to Enter key presses for proper text formatting.
     /// 
-    /// - Parameter text: The text to type. Supports full Unicode including emoji
+    /// - Parameter text: The text to type. Supports full Unicode including emoji and line breaks
     /// - Note: Requires accessibility permissions to function
     /// - Warning: Will silently fail if accessibility permissions are not granted
     func typeText(_ text: String) {
@@ -74,6 +81,13 @@ class KeyboardSimulator {
         for character in text {
             let characterString = String(character)
             
+            // Special handling for line breaks - simulate Enter key press instead of typing \n
+            if character == "\n" {
+                print("KeyboardSimulator: Simulating Enter key for line break")
+                simulateEnterKey(using: source)
+                continue
+            }
+            
             // Convert to UTF-16 for proper Unicode handling
             let utf16Array = Array(characterString.utf16)
             
@@ -101,5 +115,25 @@ class KeyboardSimulator {
             // Small delay between characters for more natural typing and reliability
             usleep(2000) // 2ms delay for complex characters
         }
+    }
+    
+    /// Simulates pressing the Enter key
+    /// - Parameter source: The CGEventSource to use for the key events
+    private func simulateEnterKey(using source: CGEventSource) {
+        // Virtual key code for Return/Enter key on macOS
+        let returnKeyCode: CGKeyCode = 36
+        
+        // Create key down event for Enter
+        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: true) {
+            keyDown.post(tap: .cghidEventTap)
+        }
+        
+        // Create key up event for Enter
+        if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: false) {
+            keyUp.post(tap: .cghidEventTap)
+        }
+        
+        // Slightly longer delay for key presses vs character typing
+        usleep(5000) // 5ms delay for key presses
     }
 } 

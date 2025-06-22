@@ -37,6 +37,12 @@ class PreferencesManager {
     private let keyboardShortcutModifiersKey = Constants.PreferenceKeys.keyboardShortcutModifiers
     private let autostartKey = Constants.PreferenceKeys.autostart
     
+    // OCR preference keys
+    private let ocrEnabledKey = Constants.PreferenceKeys.ocrEnabled
+    private let ocrShowPreviewKey = Constants.PreferenceKeys.ocrShowPreview
+    private let ocrShortcutKeyCodeKey = Constants.PreferenceKeys.ocrShortcutKeyCode
+    private let ocrShortcutModifiersKey = Constants.PreferenceKeys.ocrShortcutModifiers
+    
     // Default values (using constants for consistency)
     private let defaultTypingDelay = Constants.defaultTypingDelay
     private let defaultAutoClearClipboard = false
@@ -46,6 +52,12 @@ class PreferencesManager {
     private let defaultKeyboardShortcutKeyCode = Constants.defaultKeyCode
     private let defaultKeyboardShortcutModifiers = Constants.defaultModifiers
     private let defaultAutostart = false
+    
+    // OCR default values
+    private let defaultOCREnabled = false
+    private let defaultOCRShowPreview = false
+    private let defaultOCRShortcutKeyCode = Constants.defaultOCRKeyCode
+    private let defaultOCRShortcutModifiers = Constants.defaultOCRModifiers
     
     /// Initialize with optional UserDefaults instance (useful for testing)
     /// - Parameter userDefaults: UserDefaults instance to use (defaults to .standard)
@@ -63,7 +75,13 @@ class PreferencesManager {
             showCountdownInMenuBarKey: defaultShowCountdownInMenuBar,
             keyboardShortcutKeyCodeKey: defaultKeyboardShortcutKeyCode,
             keyboardShortcutModifiersKey: defaultKeyboardShortcutModifiers,
-            autostartKey: defaultAutostart
+            autostartKey: defaultAutostart,
+            
+            // OCR defaults
+            ocrEnabledKey: defaultOCREnabled,
+            ocrShowPreviewKey: defaultOCRShowPreview,
+            ocrShortcutKeyCodeKey: defaultOCRShortcutKeyCode,
+            ocrShortcutModifiersKey: defaultOCRShortcutModifiers
         ]
         
         defaults.register(defaults: defaultValues)
@@ -125,6 +143,38 @@ class PreferencesManager {
     var autostart: Bool {
         get { defaults.bool(forKey: autostartKey) }
         set { defaults.set(newValue, forKey: autostartKey) }
+    }
+    
+    // MARK: - OCR Properties
+    
+    /// Whether OCR feature is enabled
+    var ocrEnabled: Bool {
+        get { defaults.bool(forKey: ocrEnabledKey) }
+        set { defaults.set(newValue, forKey: ocrEnabledKey) }
+    }
+    
+    /// Whether to show OCR preview dialog before adding to clipboard
+    var ocrShowPreview: Bool {
+        get { defaults.bool(forKey: ocrShowPreviewKey) }
+        set { defaults.set(newValue, forKey: ocrShowPreviewKey) }
+    }
+    
+    /// OCR keyboard shortcut key code
+    var ocrShortcutKeyCode: UInt16 {
+        get { 
+            let value = defaults.integer(forKey: ocrShortcutKeyCodeKey)
+            return value == 0 ? defaultOCRShortcutKeyCode : UInt16(value)
+        }
+        set { defaults.set(Int(newValue), forKey: ocrShortcutKeyCodeKey) }
+    }
+    
+    /// OCR keyboard shortcut modifier flags
+    var ocrShortcutModifiers: UInt32 {
+        get { 
+            let value = defaults.integer(forKey: ocrShortcutModifiersKey)
+            return value == 0 ? defaultOCRShortcutModifiers : UInt32(value)
+        }
+        set { defaults.set(Int(newValue), forKey: ocrShortcutModifiersKey) }
     }
     
     // MARK: - Legacy Methods (for backward compatibility)

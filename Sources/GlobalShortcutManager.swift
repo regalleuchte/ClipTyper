@@ -38,11 +38,20 @@ import ApplicationServices
 class GlobalShortcutManager {
     private var eventHandler: Any?
     private var shortcutCallback: (() -> Void)?
+    private var ocrCallback: (() -> Void)?
     
     /// Current shortcut key code (default: 9 for V key)
     private var keyCode: UInt16 = Constants.defaultKeyCode
     /// Current shortcut modifier flags (default: Option + Command)
     private var modifiers: UInt32 = Constants.defaultModifiers
+    
+    /// OCR shortcut key code (default: 15 for R key)
+    private var ocrKeyCode: UInt16 = Constants.defaultOCRKeyCode
+    /// OCR shortcut modifier flags (default: Option + Command)
+    private var ocrModifiers: UInt32 = Constants.defaultOCRModifiers
+    
+    /// Whether OCR shortcut is enabled
+    private var ocrShortcutEnabled: Bool = false
     
     deinit {
         unregisterShortcut()
@@ -110,6 +119,29 @@ class GlobalShortcutManager {
         return true
     }
     
+    /// Registers the OCR shortcut alongside the existing typing shortcut
+    /// - Parameters:
+    ///   - callback: Closure to execute when OCR shortcut is triggered  
+    ///   - keyCode: OCR shortcut key code
+    ///   - modifiers: OCR shortcut modifier flags
+    /// - Returns: True if registration succeeded, false otherwise
+    func registerOCRShortcut(callback: @escaping () -> Void, keyCode: UInt16, modifiers: UInt32) -> Bool {
+        ocrCallback = callback
+        ocrKeyCode = keyCode
+        ocrModifiers = modifiers
+        ocrShortcutEnabled = true
+        
+        print("GlobalShortcutManager: OCR shortcut registered: \(getOCRShortcutString())")
+        return true // OCR uses the same event monitoring as the main shortcut
+    }
+    
+    /// Unregisters the OCR shortcut
+    func unregisterOCRShortcut() {
+        ocrCallback = nil
+        ocrShortcutEnabled = false
+        print("GlobalShortcutManager: OCR shortcut unregistered")
+    }
+    
     /// Unregisters the current global shortcut and cleans up resources
     /// 
     /// This method should be called before the manager is deallocated
@@ -161,11 +193,16 @@ class GlobalShortcutManager {
             if isShiftPressed { pressedModifiers |= UInt32(shiftKey) }
             if isControlPressed { pressedModifiers |= UInt32(controlKey) }
             
+            // Check typing shortcut
             if UInt16(keycode) == self.keyCode && pressedModifiers == self.modifiers {
                 shortcutCallback?()
-                
-                // Return nil to consume the event (prevent it from being passed to the application)
-                return nil
+                return nil // Consume the event
+            }
+            
+            // Check OCR shortcut (if enabled)
+            if ocrShortcutEnabled && UInt16(keycode) == self.ocrKeyCode && pressedModifiers == self.ocrModifiers {
+                ocrCallback?()
+                return nil // Consume the event
             }
         }
         
@@ -197,6 +234,26 @@ class GlobalShortcutManager {
     // Check if shortcut is currently registered
     func isShortcutRegistered() -> Bool {
         return eventHandler != nil
+    }
+    
+    // Get the current OCR shortcut as a string
+    func getOCRShortcutString() -> String {
+        return formatOCRShortcut()
+    }
+    
+    private func formatOCRShortcut() -> String {
+        var result = ""
+        
+        if ocrModifiers & UInt32(controlKey) != 0 { result += "⌃" }
+        if ocrModifiers & UInt32(optionKey) != 0 { result += "⌥" }
+        if ocrModifiers & UInt32(shiftKey) != 0 { result += "⇧" }
+        if ocrModifiers & UInt32(cmdKey) != 0 { result += "⌘" }
+        
+        // Add key character
+        let keyChar = keyCodeToChar(ocrKeyCode)
+        result += keyChar
+        
+        return result
     }
     
     // Helper function to convert key code to character
