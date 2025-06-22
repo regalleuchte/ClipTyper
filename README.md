@@ -223,7 +223,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 ---
 
-## 🎯 Perfect for Security Professionals
+## 🎯 
 
 **Target Users**: Security engineers, MSP employees, and IT professionals working through VPN/RDP jump hosts, virtual machines, or any environment where traditional copy-paste functionality is restricted or disabled.
 
