@@ -1,21 +1,8 @@
 # ClipTyper v2.0
 
-A powerful macOS status bar utility that simulates keyboard typing of clipboard contents and captures text from screen using OCR. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
+A little macOS status bar utility that simulates keyboard typing of clipboard contents and captures text from screen using OCR. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
 
 **📜 License**: GNU General Public License v3.0 | **🔓 Open Source** | **🛡️ Security Focused** | **✨ v2.0 Enhanced**
-
-## 🚀 What's New in v2.0
-
-### ✨ Enhanced Screen Text Capture (OCR)
-- **Instant crosshair cursor** - Appears immediately when starting OCR selection
-- **Persistent cursor state** - Cursor remains consistent throughout selection process
-- **Improved text recognition** - Better line break detection and preservation
-- **Responsive selection UX** - More fluid rubber-band selection with visual feedback
-
-### ⌨️ Advanced Typing Engine
-- **Line break preservation** - Multi-line OCR text types with proper Enter key presses
-- **Enhanced Unicode support** - Better handling of complex characters and emoji
-- **Improved text formatting** - Maintains original text structure and layout
 
 ## Core Features
 
@@ -36,13 +23,11 @@ A powerful macOS status bar utility that simulates keyboard typing of clipboard 
 ### 🛡️ Security & Privacy
 - **🔐 No Data Retention** - Zero clipboard history or persistent storage
 - **📱 Offline Operation** - All processing performed locally, no network required
-- **✅ Code Signed** - Developer ID signed for security and trust
-- **🎯 Target-Specific** - Built for environments with restricted copy-paste
 
 ## Installation
 
 ### 📦 Download (Recommended)
-1. Download `ClipTyper-2.0-Notarized.dmg` from [GitHub Releases](https://github.com/regalleuchte/ClipTyper/releases)
+1. Download `ClipTyper-<version>` from [GitHub Releases](https://github.com/regalleuchte/ClipTyper/releases)
 2. Mount the DMG and drag ClipTyper to Applications
 3. Launch ClipTyper from Applications folder
 4. Grant **Accessibility permissions** when prompted (required)
@@ -142,13 +127,6 @@ Access all settings by **left-clicking** the ClipTyper menu bar icon:
 - **Timer-Based Monitoring** - Efficient clipboard polling every 0.5 seconds
 - **Unicode-First Typing** - Layout-independent text simulation using CGEvent
 - **Vision Framework Integration** - Apple's advanced OCR with offline processing
-
-### 🔧 Key Technical Features
-- **Cursor Stack Management** - Proper AppKit cursor handling with push/pop operations
-- **Mouse Tracking Areas** - Enhanced cursor responsiveness and immediate feedback
-- **Memory Management** - Careful window lifecycle handling and autorelease pools
-- **Cross-Layout Typing** - Works with any keyboard layout or input method
-- **Retina Display Support** - Proper coordinate handling for high-DPI screens
 
 ## Development Commands
 
@@ -256,5 +234,3 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - ✅ Works offline without network dependencies
 - ✅ Handles complex Unicode text and multi-line content
 - ✅ Integrates seamlessly with macOS workflow
-
-*Made with ❤️ for the security community*
