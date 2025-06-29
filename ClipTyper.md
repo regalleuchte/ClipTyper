@@ -144,6 +144,53 @@ Typing Delay: [slider 0.5s-10s, default 2s]
 - **Primary:** Mac App Store
 - **Fallback:** Notarized DMG
 
+## Build System
+
+### Build Scripts
+ClipTyper includes three specialized build scripts for different development and distribution needs:
+
+#### 1. `build.sh` - Development Build
+- **Purpose:** Quick app bundle creation for development testing
+- **Output:** `ClipTyper.app` (in project root)
+- **Signing:** Interactive prompt for optional signing
+- **Use Case:** Rapid development iteration and local testing
+
+#### 2. `build-dmg.sh` - Universal DMG Builder ⭐ **PRIMARY**
+- **Purpose:** Production-ready DMG with intelligent conditional signing
+- **Output:** `ClipTyper-2.0.dmg` (fully signed when Developer ID available)
+- **Signing:** Automatic detection and signing if certificate present
+- **Features:**
+  - ✅ Conditional signing (works with or without certificates)
+  - ✅ Complete DMG and app signing
+  - ✅ Robust extended attribute handling
+  - ✅ Smart user installation instructions
+- **Use Case:** Primary script for both development and distribution
+
+#### 3. `build-notarized.sh` - Maximum Security
+- **Purpose:** Apple-notarized DMG for public distribution
+- **Output:** `ClipTyper-2.0-Notarized.dmg`
+- **Requirements:** Apple Developer Program membership and notarization setup
+- **Features:**
+  - ✅ Full code signing with hardened runtime
+  - ✅ Apple notarization process
+  - ✅ Stapled notarization tickets
+  - ✅ Zero security warnings on any macOS version
+- **Use Case:** Public distribution requiring maximum user trust
+
+### Extended Attributes Handling
+**Technical Note:** macOS automatically adds extended attributes (`com.apple.FinderInfo`, `com.apple.provenance`) that can interfere with code signing verification.
+
+**Solution implemented:**
+- Graceful cleanup with `xattr -cr path 2>/dev/null || true`
+- Non-fatal signature verification
+- Single-phase cleanup approach
+- Error suppression for better user experience
+
+### Build Workflow Recommendations
+- **Quick testing:** `./build.sh`
+- **Normal distribution:** `./build-dmg.sh` 
+- **Maximum security:** `./build-notarized.sh`
+
 ## UI/UX Mockups
 
 ### Menu Bar States

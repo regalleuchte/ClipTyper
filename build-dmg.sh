@@ -100,6 +100,24 @@ hdiutil create -srcfolder "${DMG_DIR}" \
                -format UDZO \
                -o "${DMG_NAME}.dmg"
 
+# Sign the DMG (if we have a certificate)
+if security find-identity -v -p codesigning | grep -q "${SIGNING_IDENTITY}"; then
+    echo "🔐 Signing DMG..."
+    if codesign --force \
+               --sign "${SIGNING_IDENTITY}" \
+               --timestamp \
+               "${DMG_NAME}.dmg" 2>/dev/null; then
+        echo "✅ DMG signed successfully!"
+        DMG_SIGNED_STATUS="DMG is code signed"
+    else
+        echo "⚠️  DMG signing failed, but app inside is signed"
+        DMG_SIGNED_STATUS="DMG unsigned, but app inside is signed"
+    fi
+else
+    echo "ℹ️  No certificate found, DMG will be unsigned"
+    DMG_SIGNED_STATUS="DMG unsigned (no certificate)"
+fi
+
 # Clean up temporary directories
 rm -rf "${BUILD_DIR}" "${DMG_DIR}"
 
@@ -108,15 +126,25 @@ echo ""
 echo "📋 Distribution Summary:"
 echo "  • File: ${DMG_NAME}.dmg"
 echo "  • Size: $(du -h "${DMG_NAME}.dmg" | cut -f1)"
-echo "  • Status: ${SIGNED_STATUS}"
+echo "  • App Status: ${SIGNED_STATUS}"
+echo "  • DMG Status: ${DMG_SIGNED_STATUS}"
 echo ""
 echo "🚀 Next Steps:"
 echo "  1. Test the DMG by mounting and installing"
 echo "  2. For signed distribution, join Apple Developer Program"
 echo "  3. Share DMG with testers via email/cloud storage"
 echo ""
-echo "⚠️  Testers will need to:"
-echo "  1. Right-click DMG → Open (first time only)"
-echo "  2. Drag ClipTyper to Applications folder"
-echo "  3. Right-click app → Open (first launch only)"
-echo "  4. Grant Accessibility permissions in System Settings"
+# Provide different instructions based on signing status
+if [[ "${SIGNED_STATUS}" == *"Code signed"* && "${DMG_SIGNED_STATUS}" == *"code signed"* ]]; then
+    echo "✅ Users can install normally:"
+    echo "  1. Double-click DMG to mount"
+    echo "  2. Drag ClipTyper to Applications folder"
+    echo "  3. Double-click app to launch"
+    echo "  4. Grant Accessibility permissions in System Settings"
+else
+    echo "⚠️  Users will need to (due to unsigned components):"
+    echo "  1. Right-click DMG → Open (if DMG unsigned)"
+    echo "  2. Drag ClipTyper to Applications folder"
+    echo "  3. Right-click app → Open (if app unsigned)"
+    echo "  4. Grant Accessibility permissions in System Settings"
+fi
