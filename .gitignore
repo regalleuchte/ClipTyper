@@ -6,4 +6,4 @@ xcuserdata/
 DerivedData/
 .swiftpm/
 .package.resolved
-ClipTyper.app/ 
+ClipTyper.app/ *.dmg
