@@ -16,7 +16,10 @@ final class KeyboardSimulatorTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        keyboardSimulator = KeyboardSimulator()
+        // Use test-specific PreferencesManager to avoid contaminating real preferences
+        let testDefaults = UserDefaults(suiteName: "com.cliptyper.keyboardsimulator.tests")!
+        let testPreferencesManager = PreferencesManager(userDefaults: testDefaults)
+        keyboardSimulator = KeyboardSimulator(preferencesManager: testPreferencesManager)
     }
     
     override func tearDown() {

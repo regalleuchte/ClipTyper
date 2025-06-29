@@ -35,6 +35,15 @@ enum Constants {
     /// Maximum typing delay in seconds
     static let maximumTypingDelay: Double = 10.0
     
+    /// Default typing speed in milliseconds (delay between characters)
+    static let defaultTypingSpeed: Double = 20.0
+    
+    /// Minimum typing speed in milliseconds (fastest)
+    static let minimumTypingSpeed: Double = 2.0
+    
+    /// Maximum typing speed in milliseconds (slowest)
+    static let maximumTypingSpeed: Double = 200.0
+    
     /// Clipboard monitoring interval in seconds
     static let clipboardMonitoringInterval: TimeInterval = 0.5
     
@@ -70,6 +79,7 @@ enum Constants {
     
     enum PreferenceKeys {
         static let typingDelay = "typingDelay"
+        static let typingSpeed = "typingSpeed"
         static let autoClearClipboard = "autoClearClipboard"
         static let showCharacterCount = "showCharacterCount"
         static let characterWarningThreshold = "characterWarningThreshold"

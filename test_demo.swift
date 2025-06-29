@@ -22,12 +22,16 @@ let prefsManager = PreferencesManager(userDefaults: testDefaults)
 
 // Test default values
 assert(prefsManager.typingDelay == 2.0, "Default typing delay should be 2.0")
+assert(prefsManager.typingSpeed == 20.0, "Default typing speed should be 20.0")
 assert(prefsManager.characterWarningThreshold == 100, "Default threshold should be 100")
 assert(prefsManager.autoClearClipboard == false, "Auto clear should be false by default")
 
 // Test setters and getters
 prefsManager.typingDelay = 3.5
 assert(prefsManager.typingDelay == 3.5, "Typing delay should be updated")
+
+prefsManager.typingSpeed = 100.0
+assert(prefsManager.typingSpeed == 100.0, "Typing speed should be updated")
 
 prefsManager.characterWarningThreshold = 250
 assert(prefsManager.characterWarningThreshold == 250, "Threshold should be updated")
@@ -46,7 +50,7 @@ print("   ✓ Public API available")
 
 // Test 3: KeyboardSimulator
 print("\n✅ Test 3: KeyboardSimulator")
-let keyboardSimulator = KeyboardSimulator()
+let keyboardSimulator = KeyboardSimulator(preferencesManager: prefsManager)
 
 // Test that empty string doesn't crash
 keyboardSimulator.typeText("")
@@ -62,6 +66,7 @@ print("   ✓ Unicode text processing works")
 // Test 4: Constants usage
 print("\n✅ Test 4: Constants and Best Practices")
 assert(Constants.defaultTypingDelay == 2.0, "Constants should match defaults")
+assert(Constants.defaultTypingSpeed == 20.0, "Typing speed constant correct")
 assert(Constants.defaultCharacterWarningThreshold == 100, "Threshold constant correct")
 assert(Constants.clipboardMonitoringInterval == 0.5, "Monitoring interval correct")
 

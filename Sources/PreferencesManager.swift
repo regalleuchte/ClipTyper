@@ -29,6 +29,7 @@ class PreferencesManager {
     
     // Preference keys (using constants for consistency)
     private let typingDelayKey = Constants.PreferenceKeys.typingDelay
+    private let typingSpeedKey = Constants.PreferenceKeys.typingSpeed
     private let autoClearClipboardKey = Constants.PreferenceKeys.autoClearClipboard
     private let showCharacterCountKey = Constants.PreferenceKeys.showCharacterCount
     private let characterWarningThresholdKey = Constants.PreferenceKeys.characterWarningThreshold
@@ -45,6 +46,7 @@ class PreferencesManager {
     
     // Default values (using constants for consistency)
     private let defaultTypingDelay = Constants.defaultTypingDelay
+    private let defaultTypingSpeed = Constants.defaultTypingSpeed
     private let defaultAutoClearClipboard = false
     private let defaultShowCharacterCount = false
     private let defaultCharacterWarningThreshold = Constants.defaultCharacterWarningThreshold
@@ -69,6 +71,7 @@ class PreferencesManager {
     private func registerDefaults() {
         let defaultValues: [String: Any] = [
             typingDelayKey: defaultTypingDelay,
+            typingSpeedKey: defaultTypingSpeed,
             autoClearClipboardKey: defaultAutoClearClipboard,
             showCharacterCountKey: defaultShowCharacterCount,
             characterWarningThresholdKey: defaultCharacterWarningThreshold,
@@ -93,6 +96,12 @@ class PreferencesManager {
     var typingDelay: Double {
         get { defaults.double(forKey: typingDelayKey) }
         set { defaults.set(newValue, forKey: typingDelayKey) }
+    }
+    
+    /// Typing speed in milliseconds (delay between characters)
+    var typingSpeed: Double {
+        get { defaults.double(forKey: typingSpeedKey) }
+        set { defaults.set(newValue, forKey: typingSpeedKey) }
     }
     
     /// Whether to automatically clear clipboard after typing

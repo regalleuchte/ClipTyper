@@ -27,6 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainMenuItem: NSMenuItem!
     private var clipboardStatusMenuItem: NSMenuItem!
     private var delayValueLabel: NSTextField!
+    private var speedValueLabel: NSTextField!
     private var preferencesManager: PreferencesManager!
     private var clipboardManager: ClipboardManager!
     private var keyboardSimulator: KeyboardSimulator!
@@ -69,7 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupManagers() {
         preferencesManager = PreferencesManager()
         clipboardManager = ClipboardManager()
-        keyboardSimulator = KeyboardSimulator()
+        keyboardSimulator = KeyboardSimulator(preferencesManager: preferencesManager)
         shortcutManager = GlobalShortcutManager()
         loginItemManager = LoginItemManager()
         screenTextCaptureManager = ScreenTextCaptureManager(preferencesManager: preferencesManager)
@@ -186,10 +187,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // === TYPING SETTINGS ===
         // Delay slider
-        let delayItem = NSMenuItem(title: "Typing Delay:", action: nil, keyEquivalent: "")
+        let delayItem = NSMenuItem(title: "Delay Before Typing:", action: nil, keyEquivalent: "")
         let delayView = createDelaySliderView()
         delayItem.view = delayView
         statusMenu.addItem(delayItem)
+        
+        // Speed slider
+        let speedItem = NSMenuItem(title: "Character Typing Speed:", action: nil, keyEquivalent: "")
+        let speedView = createSpeedSliderView()
+        speedItem.view = speedView
+        statusMenu.addItem(speedItem)
         
         // Character warning threshold
         let thresholdItem = NSMenuItem(title: "Character Warning Threshold: \(preferencesManager.getCharacterWarningThreshold())", action: #selector(changeWarningThreshold), keyEquivalent: "")
@@ -277,15 +284,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func createDelaySliderView() -> NSView {
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 60))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 80))
         containerView.wantsLayer = true
         
         // Modern spacing
         let margin: CGFloat = 16
         let sliderWidth: CGFloat = 180
         
+        // Title label - aligned with menu items
+        let titleLabel = ModernLabel.createCaptionLabel(
+            text: "Delay Before Typing:",
+            frame: NSRect(x: 0, y: 55, width: 200, height: 20)
+        )
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        containerView.addSubview(titleLabel)
+        
         // Modern slider with proper styling
-        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 25, width: sliderWidth, height: 20))
+        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 35, width: sliderWidth, height: 20))
         slider.minValue = 0.5
         slider.maxValue = 10.0
         slider.doubleValue = preferencesManager.getTypingDelay()
@@ -302,20 +317,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let currentDelay = preferencesManager.getTypingDelay()
         delayValueLabel = ModernLabel.createCaptionLabel(
             text: String(format: "%.1fs", currentDelay),
-            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 20, y: 5, width: 40, height: 15)
+            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 20, y: 15, width: 40, height: 15)
         )
         delayValueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         
         // Min/max labels with modern styling
         let minLabel = ModernLabel.createCaptionLabel(
             text: "0.5s",
-            frame: NSRect(x: 8, y: 25, width: 30, height: 20)
+            frame: NSRect(x: 8, y: 35, width: 30, height: 20)
         )
         minLabel.alignment = .right
         
         let maxLabel = ModernLabel.createCaptionLabel(
             text: "10s",
-            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 25, width: 30, height: 20)
+            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 35, width: 30, height: 20)
         )
         maxLabel.alignment = .left
         
@@ -325,6 +340,139 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         containerView.addSubview(maxLabel)
         
         return containerView
+    }
+    
+    private func createSpeedSliderView() -> NSView {
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 80))
+        containerView.wantsLayer = true
+        
+        // Modern spacing
+        let margin: CGFloat = 16
+        let sliderWidth: CGFloat = 180
+        
+        // Title label - aligned with menu items  
+        let titleLabel = ModernLabel.createCaptionLabel(
+            text: "Character Typing Speed:",
+            frame: NSRect(x: 0, y: 55, width: 200, height: 20)
+        )
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        containerView.addSubview(titleLabel)
+        
+        // Modern slider with proper styling
+        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 35, width: sliderWidth, height: 20))
+        slider.minValue = 0.0
+        slider.maxValue = 1.0
+        slider.doubleValue = speedToSlider(preferencesManager.typingSpeed)
+        slider.target = self
+        slider.action = #selector(speedSliderChanged(_:))
+        slider.isContinuous = true
+        
+        // Modern slider appearance
+        if #available(macOS 11.0, *) {
+            slider.trackFillColor = NSColor.controlAccentColor
+        }
+        
+        // Current value label with modern typography
+        let currentSpeed = preferencesManager.typingSpeed
+        let speedLabel = speedLabelText(for: currentSpeed)
+        speedValueLabel = ModernLabel.createCaptionLabel(
+            text: speedLabel,
+            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 50, y: 15, width: 100, height: 15)
+        )
+        speedValueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        speedValueLabel.alignment = .center
+        speedValueLabel.lineBreakMode = .byClipping  // Ensure no text truncation
+        speedValueLabel.allowsDefaultTighteningForTruncation = false
+        
+        // Min/max labels with modern styling
+        let minLabel = ModernLabel.createCaptionLabel(
+            text: "2ms",
+            frame: NSRect(x: 8, y: 35, width: 30, height: 20)
+        )
+        minLabel.alignment = .right
+        
+        let maxLabel = ModernLabel.createCaptionLabel(
+            text: "200ms",
+            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 35, width: 40, height: 20)
+        )
+        maxLabel.alignment = .left
+        
+        containerView.addSubview(slider)
+        containerView.addSubview(speedValueLabel)
+        containerView.addSubview(minLabel)
+        containerView.addSubview(maxLabel)
+        
+        return containerView
+    }
+    
+    /// Convert slider position (0.0-1.0) to actual typing speed (2ms-200ms) using non-linear scale
+    private func sliderToSpeed(_ sliderValue: Double) -> Double {
+        // Non-linear mapping for better UX at key speeds:
+        // 0.0-0.4: 2ms to 20ms (Fast to Default)
+        // 0.4-0.7: 20ms to 50ms (Default to Natural) 
+        // 0.7-1.0: 50ms to 200ms (Natural to Slow)
+        
+        if sliderValue <= 0.4 {
+            // 2ms to 20ms range
+            let normalizedValue = sliderValue / 0.4
+            return 2.0 + (normalizedValue * 18.0)
+        } else if sliderValue <= 0.7 {
+            // 20ms to 50ms range
+            let normalizedValue = (sliderValue - 0.4) / 0.3
+            return 20.0 + (normalizedValue * 30.0)
+        } else {
+            // 50ms to 200ms range
+            let normalizedValue = (sliderValue - 0.7) / 0.3
+            return 50.0 + (normalizedValue * 150.0)
+        }
+    }
+    
+    /// Convert actual typing speed (2ms-200ms) to slider position (0.0-1.0) using non-linear scale
+    private func speedToSlider(_ speed: Double) -> Double {
+        // Clamp speed to valid range
+        let clampedSpeed = max(Constants.minimumTypingSpeed, min(Constants.maximumTypingSpeed, speed))
+        
+        if clampedSpeed <= 20.0 {
+            // 2ms to 20ms range maps to 0.0-0.4
+            let normalizedValue = (clampedSpeed - 2.0) / 18.0
+            return normalizedValue * 0.4
+        } else if clampedSpeed <= 50.0 {
+            // 20ms to 50ms range maps to 0.4-0.7
+            let normalizedValue = (clampedSpeed - 20.0) / 30.0
+            return 0.4 + (normalizedValue * 0.3)
+        } else {
+            // 50ms to 200ms range maps to 0.7-1.0
+            let normalizedValue = (clampedSpeed - 50.0) / 150.0
+            return 0.7 + (normalizedValue * 0.3)
+        }
+    }
+    
+    private func speedLabelText(for speed: Double) -> String {
+        let speedInt = Int(round(speed))
+        let description: String
+        
+        if speedInt >= 2 && speedInt <= 19 {
+            description = "Fast"
+        } else if speedInt == 20 {
+            description = "Default"
+        } else if speedInt >= 21 && speedInt <= 49 {
+            description = "Fast"  // Exactly as requested
+        } else if speedInt >= 50 && speedInt <= 100 {
+            description = "Natural"
+        } else if speedInt >= 101 && speedInt <= 200 {
+            description = "Slow"
+        } else {
+            description = "Unknown"
+        }
+        
+        return String(format: "%dms (%@)", speedInt, description)
+    }
+    
+    @objc private func speedSliderChanged(_ sender: NSSlider) {
+        let speed = sliderToSpeed(sender.doubleValue)
+        preferencesManager.typingSpeed = speed
+        let labelText = speedLabelText(for: speed)
+        speedValueLabel.stringValue = labelText
     }
     
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {

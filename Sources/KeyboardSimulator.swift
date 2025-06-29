@@ -43,6 +43,15 @@ import Cocoa
 /// ```
 class KeyboardSimulator {
     
+    /// Preferences manager for accessing typing speed settings
+    private let preferencesManager: PreferencesManager
+    
+    /// Initialize with optional PreferencesManager (useful for testing)
+    /// - Parameter preferencesManager: PreferencesManager instance to use (defaults to new instance)
+    init(preferencesManager: PreferencesManager = PreferencesManager()) {
+        self.preferencesManager = preferencesManager
+    }
+    
     /// Types the specified text using Unicode-based keyboard simulation
     /// 
     /// This method converts text to Unicode scalars and uses CGEvent to simulate
@@ -113,7 +122,7 @@ class KeyboardSimulator {
             }
             
             // Small delay between characters for more natural typing and reliability
-            usleep(2000) // 2ms delay for complex characters
+            usleep(UInt32(preferencesManager.typingSpeed * 1000)) // Convert milliseconds to microseconds
         }
     }
     
@@ -134,6 +143,6 @@ class KeyboardSimulator {
         }
         
         // Slightly longer delay for key presses vs character typing
-        usleep(5000) // 5ms delay for key presses
+        usleep(UInt32(preferencesManager.typingSpeed * 1000 * 2.5)) // 2.5x multiplier for key presses
     }
 } 

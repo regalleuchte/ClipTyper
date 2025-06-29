@@ -18,6 +18,11 @@ prefs.typingDelay = 5.0
 assert(prefs.typingDelay == 5.0, "Computed property setter failed")
 prefs.typingDelay = originalDelay
 
+let originalSpeed = prefs.typingSpeed
+prefs.typingSpeed = 100.0
+assert(prefs.typingSpeed == 100.0, "Typing speed computed property setter failed")
+prefs.typingSpeed = originalSpeed
+
 print("   ✓ Computed properties working")
 print("   ✓ Dependency injection supported")
 
@@ -25,7 +30,9 @@ print("   ✓ Dependency injection supported")
 print("\n✅ Testing Constants extraction...")
 
 assert(Constants.defaultTypingDelay == 2.0)
-assert(Constants.defaultCharacterWarningThreshold == 100)
+assert(Constants.defaultTypingSpeed == 20.0)
+assert(Constants.minimumTypingSpeed == 2.0)
+assert(Constants.maximumTypingSpeed == 200.0)
 assert(Constants.clipboardMonitoringInterval == 0.5)
 assert(Constants.SFSymbols.clipboardFilled == "doc.on.clipboard.fill")
 

@@ -49,6 +49,28 @@ final class PreferencesManagerTests: XCTestCase {
         XCTAssertEqual(preferencesManager.typingDelay, 10.0)
     }
     
+    // MARK: - Typing Speed Tests
+    
+    func testDefaultTypingSpeed() {
+        XCTAssertEqual(preferencesManager.typingSpeed, 20.0, "Default typing speed should be 20.0 milliseconds")
+    }
+    
+    func testSetTypingSpeed() {
+        let testSpeed = 50.0
+        preferencesManager.typingSpeed = testSpeed
+        XCTAssertEqual(preferencesManager.typingSpeed, testSpeed, "Typing speed should be updated")
+    }
+    
+    func testTypingSpeedRange() {
+        // Test minimum (fastest)
+        preferencesManager.typingSpeed = 2.0
+        XCTAssertEqual(preferencesManager.typingSpeed, 2.0)
+        
+        // Test maximum (slowest)
+        preferencesManager.typingSpeed = 200.0
+        XCTAssertEqual(preferencesManager.typingSpeed, 200.0)
+    }
+    
     // MARK: - Auto Clear Clipboard Tests
     
     func testDefaultAutoClearClipboard() {
@@ -117,6 +139,7 @@ final class PreferencesManagerTests: XCTestCase {
     func testPreferencePersistence() {
         // Set multiple preferences
         preferencesManager.typingDelay = 3.5
+        preferencesManager.typingSpeed = 100.0
         preferencesManager.autoClearClipboard = true
         preferencesManager.characterWarningThreshold = 200
         
@@ -125,6 +148,7 @@ final class PreferencesManagerTests: XCTestCase {
         
         // Verify persistence
         XCTAssertEqual(newPreferencesManager.typingDelay, 3.5)
+        XCTAssertEqual(newPreferencesManager.typingSpeed, 100.0)
         XCTAssertTrue(newPreferencesManager.autoClearClipboard)
         XCTAssertEqual(newPreferencesManager.characterWarningThreshold, 200)
     }
