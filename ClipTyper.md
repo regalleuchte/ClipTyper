@@ -1,8 +1,16 @@
-# ClipTyper v2.0 - Project Specification
+# ClipTyper v2.1 - Project Specification
 
 ## Overview
 
 ClipTyper is a macOS status bar utility that simulates keyboard typing of clipboard content, solving copy-paste restrictions when working through multiple secure remote sessions, VPNs, RDPs, and jump hosts.
+
+## Version 2.1 Features
+
+**New in v2.1:**
+- ✅ Typing Speed Slider - Adjustable character typing speed from 2ms to 200ms per character
+- ✅ Improved performance at high typing speeds
+- ✅ Fixed character skipping issues at maximum speed settings
+- ✅ Enhanced countdown experience with immediate typing after countdown
 
 ## Version 2.0 Features
 
@@ -33,6 +41,7 @@ ClipTyper is a macOS status bar utility that simulates keyboard typing of clipbo
 - ✅ Preserves all text formatting, capitalization, and special characters
 - ✅ Full Unicode support
 - ✅ Configurable delay before typing (0.5s-10s, default 2s)
+- ✅ Adjustable typing speed (2ms-200ms per character, default 20ms)
 - ✅ Optional auto-clear clipboard after typing (default off)
 - ✅ Warning dialog for large text (>100 characters, configurable)
 - ✅ Runs completely offline
@@ -87,6 +96,7 @@ Clipboard: XX characters
 
 === TYPING SETTINGS ===
 Typing Delay: [slider 0.5s-10s, default 2s]
+Typing Speed: [slider 2ms-200ms, default 20ms]
 ⚠️ Character Warning Threshold: XXX
 🗑 Auto-clear Clipboard After Typing [toggle]
 
@@ -114,6 +124,7 @@ Typing Delay: [slider 0.5s-10s, default 2s]
 | Typing Shortcut | ⌥⌘V | Configurable | Global hotkey for typing |
 | OCR Shortcut | ⌥⌘R | Configurable | Global hotkey for screen capture |
 | Typing Delay | 2s | 0.5s-10s | Countdown before typing begins |
+| Typing Speed | 20ms | 2ms-200ms | Speed per character |
 | Character Warning | 100 | Any number | Threshold for warning dialog |
 | Auto-clear Clipboard | Off | On/Off | Clear clipboard after typing |
 | Show Character Count | Off | On/Off | Display count in menu bar |
@@ -157,7 +168,7 @@ ClipTyper includes three specialized build scripts for different development and
 
 #### 2. `build-dmg.sh` - Universal DMG Builder ⭐ **PRIMARY**
 - **Purpose:** Production-ready DMG with intelligent conditional signing
-- **Output:** `ClipTyper-2.0.dmg` (fully signed when Developer ID available)
+- **Output:** `ClipTyper-2.1.dmg` (fully signed when Developer ID available)
 - **Signing:** Automatic detection and signing if certificate present
 - **Features:**
   - ✅ Conditional signing (works with or without certificates)
@@ -168,7 +179,7 @@ ClipTyper includes three specialized build scripts for different development and
 
 #### 3. `build-notarized.sh` - Maximum Security
 - **Purpose:** Apple-notarized DMG for public distribution
-- **Output:** `ClipTyper-2.0-Notarized.dmg`
+- **Output:** `ClipTyper-2.1-Notarized.dmg`
 - **Requirements:** Apple Developer Program membership and notarization setup
 - **Features:**
   - ✅ Full code signing with hardened runtime

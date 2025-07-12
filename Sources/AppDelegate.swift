@@ -284,23 +284,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func createDelaySliderView() -> NSView {
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 80))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 75))
         containerView.wantsLayer = true
         
-        // Modern spacing
-        let margin: CGFloat = 16
-        let sliderWidth: CGFloat = 180
+        // Standard menu item indentation
+        let menuItemIndent: CGFloat = 20
+        let sliderWidth: CGFloat = 170
+        let sliderX: CGFloat = 55
         
-        // Title label - aligned with menu items
+        // Title label - aligned with standard menu items
         let titleLabel = ModernLabel.createCaptionLabel(
             text: "Delay Before Typing:",
-            frame: NSRect(x: 0, y: 55, width: 200, height: 20)
+            frame: NSRect(x: menuItemIndent, y: 50, width: 200, height: 20)
         )
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        titleLabel.alignment = .left
         containerView.addSubview(titleLabel)
         
-        // Modern slider with proper styling
-        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 35, width: sliderWidth, height: 20))
+        // Slider
+        let slider = NSSlider(frame: NSRect(x: sliderX, y: 30, width: sliderWidth, height: 20))
         slider.minValue = 0.5
         slider.maxValue = 10.0
         slider.doubleValue = preferencesManager.getTypingDelay()
@@ -308,29 +310,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         slider.action = #selector(delaySliderChanged(_:))
         slider.isContinuous = true
         
-        // Modern slider appearance
         if #available(macOS 11.0, *) {
             slider.trackFillColor = NSColor.controlAccentColor
         }
         
-        // Current value label with modern typography
+        // Current value label centered below slider
         let currentDelay = preferencesManager.getTypingDelay()
         delayValueLabel = ModernLabel.createCaptionLabel(
             text: String(format: "%.1fs", currentDelay),
-            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 20, y: 15, width: 40, height: 15)
+            frame: NSRect(x: sliderX + (sliderWidth / 2) - 25, y: 12, width: 50, height: 15)
         )
         delayValueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        delayValueLabel.alignment = .center
         
-        // Min/max labels with modern styling
+        // Min/max labels with better spacing
         let minLabel = ModernLabel.createCaptionLabel(
             text: "0.5s",
-            frame: NSRect(x: 8, y: 35, width: 30, height: 20)
+            frame: NSRect(x: menuItemIndent + 5, y: 30, width: 30, height: 20)
         )
         minLabel.alignment = .right
         
         let maxLabel = ModernLabel.createCaptionLabel(
             text: "10s",
-            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 35, width: 30, height: 20)
+            frame: NSRect(x: sliderX + sliderWidth + 8, y: 30, width: 35, height: 20)
         )
         maxLabel.alignment = .left
         
@@ -343,23 +345,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func createSpeedSliderView() -> NSView {
-        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 80))
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 75))
         containerView.wantsLayer = true
         
-        // Modern spacing
-        let margin: CGFloat = 16
-        let sliderWidth: CGFloat = 180
+        // Standard menu item indentation
+        let menuItemIndent: CGFloat = 20
+        let sliderWidth: CGFloat = 170
+        let sliderX: CGFloat = 55
         
-        // Title label - aligned with menu items  
+        // Title label - aligned with standard menu items  
         let titleLabel = ModernLabel.createCaptionLabel(
             text: "Character Typing Speed:",
-            frame: NSRect(x: 0, y: 55, width: 200, height: 20)
+            frame: NSRect(x: menuItemIndent, y: 50, width: 200, height: 20)
         )
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        titleLabel.alignment = .left
         containerView.addSubview(titleLabel)
         
-        // Modern slider with proper styling
-        let slider = NSSlider(frame: NSRect(x: margin + 35, y: 35, width: sliderWidth, height: 20))
+        // Slider
+        let slider = NSSlider(frame: NSRect(x: sliderX, y: 30, width: sliderWidth, height: 20))
         slider.minValue = 0.0
         slider.maxValue = 1.0
         slider.doubleValue = speedToSlider(preferencesManager.typingSpeed)
@@ -367,33 +371,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         slider.action = #selector(speedSliderChanged(_:))
         slider.isContinuous = true
         
-        // Modern slider appearance
         if #available(macOS 11.0, *) {
             slider.trackFillColor = NSColor.controlAccentColor
         }
         
-        // Current value label with modern typography
+        // Current value label centered below slider
         let currentSpeed = preferencesManager.typingSpeed
         let speedLabel = speedLabelText(for: currentSpeed)
         speedValueLabel = ModernLabel.createCaptionLabel(
             text: speedLabel,
-            frame: NSRect(x: margin + 35 + (sliderWidth / 2) - 50, y: 15, width: 100, height: 15)
+            frame: NSRect(x: sliderX + (sliderWidth / 2) - 55, y: 12, width: 110, height: 15)
         )
         speedValueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         speedValueLabel.alignment = .center
         speedValueLabel.lineBreakMode = .byClipping  // Ensure no text truncation
         speedValueLabel.allowsDefaultTighteningForTruncation = false
         
-        // Min/max labels with modern styling
+        // Min/max labels with better spacing
         let minLabel = ModernLabel.createCaptionLabel(
             text: "2ms",
-            frame: NSRect(x: 8, y: 35, width: 30, height: 20)
+            frame: NSRect(x: menuItemIndent + 5, y: 30, width: 30, height: 20)
         )
         minLabel.alignment = .right
         
         let maxLabel = ModernLabel.createCaptionLabel(
             text: "200ms",
-            frame: NSRect(x: margin + 35 + sliderWidth + 5, y: 35, width: 40, height: 20)
+            frame: NSRect(x: sliderX + sliderWidth + 8, y: 30, width: 50, height: 20)
         )
         maxLabel.alignment = .left
         

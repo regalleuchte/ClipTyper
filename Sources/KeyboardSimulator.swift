@@ -46,6 +46,9 @@ class KeyboardSimulator {
     /// Preferences manager for accessing typing speed settings
     private let preferencesManager: PreferencesManager
     
+    /// Dispatch queue for typing operations
+    private let typingQueue = DispatchQueue(label: "com.cliptyper.typing", qos: .userInitiated)
+    
     /// Initialize with optional PreferencesManager (useful for testing)
     /// - Parameter preferencesManager: PreferencesManager instance to use (defaults to new instance)
     init(preferencesManager: PreferencesManager = PreferencesManager()) {
@@ -86,43 +89,56 @@ class KeyboardSimulator {
             return
         }
         
-        // Process text as composed character sequences to handle emoji and complex Unicode properly
-        for character in text {
-            let characterString = String(character)
+        // Convert text to array of characters for processing
+        let characters = Array(text)
+        let totalCharacters = characters.count
+        
+        // Process characters asynchronously to avoid blocking the main thread
+        typingQueue.async { [weak self] in
+            guard let self = self else { return }
             
-            // Special handling for line breaks - simulate Enter key press instead of typing \n
-            if character == "\n" {
-                print("KeyboardSimulator: Simulating Enter key for line break")
-                simulateEnterKey(using: source)
-                continue
+            for (index, character) in characters.enumerated() {
+                let characterString = String(character)
+                
+                // Special handling for line breaks - simulate Enter key press instead of typing \n
+                if character == "\n" {
+                    print("KeyboardSimulator: Simulating Enter key for line break")
+                    self.simulateEnterKey(using: source)
+                } else {
+                    // Convert to UTF-16 for proper Unicode handling
+                    let utf16Array = Array(characterString.utf16)
+                    
+                    // Skip if conversion fails or produces invalid data
+                    guard !utf16Array.isEmpty else {
+                        print("Skipping invalid Unicode character")
+                        continue
+                    }
+                    
+                    // Create events for the entire character sequence
+                    var unicharArray = utf16Array.map { UniChar($0) }
+                    
+                    // Post key events on main thread to ensure proper event handling
+                    DispatchQueue.main.sync {
+                        // Create key down event
+                        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) {
+                            keyDown.keyboardSetUnicodeString(stringLength: utf16Array.count, unicodeString: &unicharArray)
+                            keyDown.post(tap: .cghidEventTap)
+                        }
+                        
+                        // Create key up event
+                        if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) {
+                            keyUp.keyboardSetUnicodeString(stringLength: utf16Array.count, unicodeString: &unicharArray)
+                            keyUp.post(tap: .cghidEventTap)
+                        }
+                    }
+                }
+                
+                // Delay between characters without blocking
+                let delayMilliseconds = self.preferencesManager.typingSpeed
+                if index < totalCharacters - 1 { // Don't delay after the last character
+                    Thread.sleep(forTimeInterval: delayMilliseconds / 1000.0)
+                }
             }
-            
-            // Convert to UTF-16 for proper Unicode handling
-            let utf16Array = Array(characterString.utf16)
-            
-            // Skip if conversion fails or produces invalid data
-            guard !utf16Array.isEmpty else {
-                print("Skipping invalid Unicode character")
-                continue
-            }
-            
-            // Create events for the entire character sequence
-            var unicharArray = utf16Array.map { UniChar($0) }
-            
-            // Create key down event
-            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) {
-                keyDown.keyboardSetUnicodeString(stringLength: utf16Array.count, unicodeString: &unicharArray)
-                keyDown.post(tap: .cghidEventTap)
-            }
-            
-            // Create key up event
-            if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) {
-                keyUp.keyboardSetUnicodeString(stringLength: utf16Array.count, unicodeString: &unicharArray)
-                keyUp.post(tap: .cghidEventTap)
-            }
-            
-            // Small delay between characters for more natural typing and reliability
-            usleep(UInt32(preferencesManager.typingSpeed * 1000)) // Convert milliseconds to microseconds
         }
     }
     
@@ -132,17 +148,20 @@ class KeyboardSimulator {
         // Virtual key code for Return/Enter key on macOS
         let returnKeyCode: CGKeyCode = 36
         
-        // Create key down event for Enter
-        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: true) {
-            keyDown.post(tap: .cghidEventTap)
-        }
-        
-        // Create key up event for Enter
-        if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: false) {
-            keyUp.post(tap: .cghidEventTap)
+        // Post key events on main thread
+        DispatchQueue.main.sync {
+            // Create key down event for Enter
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: true) {
+                keyDown.post(tap: .cghidEventTap)
+            }
+            
+            // Create key up event for Enter
+            if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: returnKeyCode, keyDown: false) {
+                keyUp.post(tap: .cghidEventTap)
+            }
         }
         
         // Slightly longer delay for key presses vs character typing
-        usleep(UInt32(preferencesManager.typingSpeed * 1000 * 2.5)) // 2.5x multiplier for key presses
+        Thread.sleep(forTimeInterval: (preferencesManager.typingSpeed * 2.5) / 1000.0)
     }
 } 

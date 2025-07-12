@@ -1,7 +1,0 @@
-Notes about current workflow and ToDos:
-
-1. Develop new feature: "Typing speed slider"
-2. Complete implementation & testing
-3. Create version bump commit updating all files
-4. Tag that commit as v2.1 release
-5. Build final release artifacts

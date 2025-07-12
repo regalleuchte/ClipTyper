@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Version 2.1 Highlights
+
+**New in v2.1:**
+- Added typing speed slider control (2ms-200ms per character)
+- Enhanced performance at high typing speeds
+- Fixed character skipping issues at maximum speed settings
+- Removed artificial delay after countdown completion
+- Improved slider UI with proper alignment and labeling
+
 ## Version 2.0 Highlights
 
 **Major Features Added:**
@@ -136,6 +145,7 @@ Clipboard: XX characters
 
 === TYPING SETTINGS ===
 Typing Delay: [slider]
+Typing Speed: [slider]
 ⚠️ Character Warning Threshold: XXX
 🗑 Auto-clear Clipboard After Typing [toggle]
 

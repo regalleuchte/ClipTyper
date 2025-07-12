@@ -1,8 +1,8 @@
-# ClipTyper v2.0
+# ClipTyper v2.1
 
 A little macOS status bar utility that simulates keyboard typing of clipboard contents and captures text from screen using OCR. Designed for security engineers, MSP employees, and professionals working through VPN/RDP jump hosts with restricted copy-paste functionality.
 
-**📜 License**: GNU General Public License v3.0 | **🔓 Open Source** | **🛡️ Security Focused** | **✨ v2.0 Enhanced**
+**📜 License**: GNU General Public License v3.0 | **🔓 Open Source** | **🛡️ Security Focused** | **✨ v2.1 Enhanced**
 
 ## Core Features
 
@@ -11,6 +11,7 @@ A little macOS status bar utility that simulates keyboard typing of clipboard co
 - **👁️ Screen Text Capture (OCR)** - Extract and type text directly from screen using Apple Vision Framework
 - **⌨️ Global Shortcuts** - Default ⌥⌘V for typing, ⌥⌘R for OCR (fully customizable)
 - **⏱️ Smart Countdown** - Configurable 0.5s-10s delay before typing begins
+- **🎳 Typing Speed Control** - Adjustable typing speed from 2ms to 200ms per character (v2.1)
 - **⚠️ Character Warnings** - Alerts for large text with configurable thresholds
 - **🔒 Security Features** - Optional auto-clear clipboard, no persistent storage
 
@@ -73,6 +74,7 @@ Access all settings by **left-clicking** the ClipTyper menu bar icon:
 
 ### ⌨️ Typing Settings
 - **Typing Delay** - Countdown duration before typing begins (0.5s-10s, default: 2s)
+- **Typing Speed** - Character typing speed (2ms-200ms per character, default: 20ms)
 - **Character Warning Threshold** - Alert limit for large text (default: 100 characters)
 - **Auto-clear Clipboard** - Security feature to clear clipboard after typing
 
@@ -155,7 +157,7 @@ swift build -c release
 
 # Check signing and notarization
 spctl -a -vvv ./ClipTyper.app
-stapler validate ./ClipTyper-2.0-Notarized.dmg
+stapler validate ./ClipTyper-2.1-Notarized.dmg
 
 # Monitor logs
 log stream --predicate 'subsystem CONTAINS "ClipTyper"'
