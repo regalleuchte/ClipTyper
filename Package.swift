@@ -18,6 +18,14 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "ClipTyperTests",
+            dependencies: ["ClipTyper"],
+            path: "Tests",
+            linkerSettings: [
+                .linkedFramework("XCTest")
+            ]
         )
     ]
 )
